@@ -6,6 +6,7 @@ import (
 	"github.com/golang/protobuf/proto"
 	"github.com/hashicorp/raft"
 	"github.com/kataras/golog"
+	"net"
 	"os"
 	"sync"
 	"time"
@@ -35,11 +36,19 @@ func CreateStore(directory string, joinAddr *string) (*Store, error) {
 	// Setup Raft configuration.
 	config := raft.DefaultConfig()
 	config.LocalID = raft.ServerID("")
-	store := Store{
+	store := Store{}
 
+	addr, err := net.ResolveTCPAddr("tcp", ":6543")
+	if err != nil {
+		return nil, err
 	}
-	opts := badger.DefaultOptions
 
+	transport, err := raft.NewTCPTransport(":6543", addr, 5, 10*time.Second, os.Stderr)
+	if err != nil {
+		return nil, err
+	}
+
+	opts := badger.DefaultOptions
 	opts.Dir = directory
 	opts.ValueDir = directory
 	db, err := badger.Open(opts)
@@ -56,22 +65,11 @@ func CreateStore(directory string, joinAddr *string) (*Store, error) {
 		return nil, fmt.Errorf("file snapshot store: %s", err)
 	}
 
-	ra, err := raft.NewRaft(config, (*fsm)(&store), &log, &stable, snapshots, nil)
+	ra, err := raft.NewRaft(config, (*fsm)(&store), &log, &stable, snapshots, transport)
 	if err != nil {
 		return nil, fmt.Errorf("new raft: %s", err)
 	}
 	store.raft = ra
-	// nodeId := uint64(-1)
-	// if joinAddr != nil {
-	//
-	// } else if nId, err := store.getNextNodeID(); err != nil {
-	// 	return nil, err
-	// } else {
-	// 	nodeId = nId
-	// }
-	//
-	// store.NodeId = nodeId
-
 	return &store, nil
 }
 
