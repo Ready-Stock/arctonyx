@@ -8,6 +8,18 @@ service ClusterService {
     rpc Get(GetRequest) returns (GetResponse) {}
 }
 
+enum Operation {
+    GET = 0;
+    SET = 1;
+    DELETE = 2;
+}
+
+message Command {
+    Operation Operation = 1;
+    bytes Key = 2;
+    bytes Value = 3;
+}
+
 message SetRequest {
     bytes key = 1;
     bytes value = 2;

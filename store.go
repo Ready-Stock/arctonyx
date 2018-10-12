@@ -1,12 +1,19 @@
 package raft_badger
 
 import (
-	"context"
 	"github.com/Ready-Stock/badger"
+	"github.com/golang/protobuf/proto"
 	"github.com/hashicorp/raft"
-	"github.com/kataras/go-errors"
+	"github.com/kataras/golog"
 	"sync"
+	"time"
 )
+
+const (
+	retainSnapshotCount = 2
+	raftTimeout         = 5 * time.Second
+)
+
 
 type Store struct {
 	raft        *raft.Raft
@@ -36,18 +43,28 @@ func CreateStore(directory string, joinAddr *string) (*Store, error) {
 	}
 	store.badger = db
 
-	nodeId := uint64(-1)
-	if joinAddr != nil {
-
-	} else if nId, err := store.getNextNodeID(); err != nil {
-		return nil, err
-	} else {
-		nodeId = nId
-	}
-
-	store.NodeId = nodeId
+	// nodeId := uint64(-1)
+	// if joinAddr != nil {
+	//
+	// } else if nId, err := store.getNextNodeID(); err != nil {
+	// 	return nil, err
+	// } else {
+	// 	nodeId = nId
+	// }
+	//
+	// store.NodeId = nodeId
 
 	return &store, nil
+}
+
+func (store *Store) Join(nodeId, addr string) error {
+	golog.Debugf("received join request from remote node [%s] at [%s]", nodeId, addr)
+
+	configFuture := store.raft.GetConfiguration()
+	if err := configFuture.Error(); err != nil {
+		golog.Errorf("failed to get raft configuration: %s", err.Error())
+	}
+	return nil
 }
 
 func (store *Store) Get(key []byte) (value []byte, err error) {
@@ -66,15 +83,17 @@ func (store *Store) Set(key, value []byte) (err error) {
 	if store.raft.State() != raft.Leader {
 		return store.clusterClient.set(store.raft.Leader(), key, value)
 	}
-
-	
-
-	return nil
-}
-
-func (store *Store) Update(func(txn *badger.Txn) error) error {
-	if store.raft.State() != raft.Leader {
-		return ErrNotLeader // Update transactions cannot be performed on non-leader nodes.
+	c := &Command{
+		Operation:Operation_SET,
+		Key:key,
+		Value:value,
 	}
-
+	b, err := proto.Marshal(c)
+	if err != nil {
+		return err
+	}
+	return store.raft.Apply(b, raftTimeout).Error()
 }
+
+
+
