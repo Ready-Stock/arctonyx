@@ -13,18 +13,24 @@ type clusterClient struct {
 	cluster *clusterServiceClient
 }
 
-func (client *clusterClient) set(leaderAddr raft.ServerAddress, key, value []byte) error {
+func (client *clusterClient) validateConnection(leaderAddr raft.ServerAddress) error {
 	client.sync.Lock()
+	defer client.sync.Unlock()
 	if leaderAddr != client.addr {
 		// If the address is not the same (the leader has changed) then update the connection and reconnect.
 	}
-	client.sync.Unlock()
+	return nil
+}
 
-	if result, err := client.cluster.Set(context.Background(), &SetRequest{Key:key, Value:value}); err != nil {
-		return err
+func (client *clusterClient) sendCommand(leaderAddr raft.ServerAddress, command *Command) (*CommandResponse, error) {
+	if err := client.validateConnection(leaderAddr); err != nil {
+		return nil, err
+	}
+	if result, err := client.cluster.SendCommand(context.Background(), command); err != nil {
+		return nil, err
 	} else if !result.IsSuccess {
-		return errors.New(result.ErrorMessage)
+		return nil, errors.New(result.ErrorMessage)
 	} else {
-		return nil
+		return result, nil
 	}
 }

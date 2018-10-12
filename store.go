@@ -30,6 +30,9 @@ type Store struct {
 
 // Creates and possibly joins a cluster.
 func CreateStore(directory string, joinAddr *string) (*Store, error) {
+	// Setup Raft configuration.
+	config := raft.DefaultConfig()
+	config.LocalID = raft.ServerID("")
 	store := Store{
 
 	}
@@ -43,6 +46,8 @@ func CreateStore(directory string, joinAddr *string) (*Store, error) {
 	}
 	store.badger = db
 
+	stable := stableStore(store)
+	ra, err := raft.NewRaft(config, (*fsm)(store), nil, &stable, nil, nil)
 	// nodeId := uint64(-1)
 	// if joinAddr != nil {
 	//
@@ -80,13 +85,12 @@ func (store *Store) Get(key []byte) (value []byte, err error) {
 }
 
 func (store *Store) Set(key, value []byte) (err error) {
+	c := &Command{Operation:Operation_SET, Key:key, Value:value}
 	if store.raft.State() != raft.Leader {
-		return store.clusterClient.set(store.raft.Leader(), key, value)
-	}
-	c := &Command{
-		Operation:Operation_SET,
-		Key:key,
-		Value:value,
+		if _, err := store.clusterClient.sendCommand(store.raft.Leader(), c); err != nil {
+			return err
+		}
+		return nil
 	}
 	b, err := proto.Marshal(c)
 	if err != nil {
@@ -95,5 +99,17 @@ func (store *Store) Set(key, value []byte) (err error) {
 	return store.raft.Apply(b, raftTimeout).Error()
 }
 
-
-
+func (store *Store) Delete(key []byte) (err error) {
+	c := &Command{Operation:Operation_DELETE, Key:key, Value:nil}
+	if store.raft.State() != raft.Leader {
+		if _, err := store.clusterClient.sendCommand(store.raft.Leader(), c); err != nil {
+			return err
+		}
+		return nil
+	}
+	b, err := proto.Marshal(c)
+	if err != nil {
+		return err
+	}
+	return store.raft.Apply(b, raftTimeout).Error()
+}
