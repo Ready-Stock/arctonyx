@@ -10,6 +10,6 @@ go:
 - "1.8"
 
 install:
-- go get github.com/Ready-Stock/raft-badger
+- go get -d github.com/Ready-Stock/raft-badger
 - make protos
 
