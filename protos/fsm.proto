@@ -1,0 +1,12 @@
+syntax = "proto3";
+
+package raft_badger;
+
+message Snapshot {
+    repeated Tuple tuples = 1;
+}
+
+message Tuple {
+    bytes key = 1;
+    bytes value = 2;
+}
