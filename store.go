@@ -14,11 +14,11 @@ type Store struct {
 	sequenceIds *badger.Sequence
 
 	chunkMapMutex  *sync.Mutex
-	sequenceChunks map[uint64]*SequenceChunk
+	sequenceChunks map[string]*SequenceChunk
 
-	sequenceServiceC *sequenceServiceClient
-	clusterServiceC  *clusterServiceClient
-	NodeId           uint64
+	sequenceClient *sequenceClient
+	clusterClient  *clusterClient
+	NodeId         uint64
 }
 
 // Creates and possibly joins a cluster.
@@ -64,15 +64,17 @@ func (store *Store) Get(key []byte) (value []byte, err error) {
 
 func (store *Store) Set(key, value []byte) (err error) {
 	if store.raft.State() != raft.Leader {
-		if set, err := store.clusterServiceC.Set(context.Background(), &SetRequest{Key:key,Value:value}); err != nil {
-			return err
-		} else {
-			if !set.IsSuccess {
-				return errors.New(set.ErrorMessage)
-			}
-		}
-	} else {
-
+		return store.clusterClient.set(store.raft.Leader(), key, value)
 	}
+
+	
+
 	return nil
+}
+
+func (store *Store) Update(func(txn *badger.Txn) error) error {
+	if store.raft.State() != raft.Leader {
+		return ErrNotLeader // Update transactions cannot be performed on non-leader nodes.
+	}
+
 }
