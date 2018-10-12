@@ -47,7 +47,8 @@ func CreateStore(directory string, joinAddr *string) (*Store, error) {
 	store.badger = db
 
 	stable := stableStore(store)
-	ra, err := raft.NewRaft(config, (*fsm)(&store), nil, &stable, nil, nil)
+	log := logStore(store)
+	ra, err := raft.NewRaft(config, (*fsm)(&store), &log, &stable, nil, nil)
 	// nodeId := uint64(-1)
 	// if joinAddr != nil {
 	//
