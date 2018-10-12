@@ -6,6 +6,11 @@ import (
 	"sync"
 )
 
+type sequenceClient struct {
+	sequenceServiceC *sequenceServiceClient
+}
+
+
 func (store *Store) getNextNodeID() (uint64, error) {
 	if store.raft != nil && store.raft.State() != raft.Leader {
 		// Send request to leader.
@@ -23,17 +28,17 @@ type SequenceChunk struct {
 	sync    *sync.Mutex
 }
 
-func (store *Store) NextSequenceValueById(sequenceId uint64) (*uint64, error) {
+func (store *Store) NextSequenceValueById(sequenceName string) (*uint64, error) {
 	store.chunkMapMutex.Lock()
 	defer store.chunkMapMutex.Unlock()
 Reset:
-	if sequence, ok := store.sequenceChunks[sequenceId]; !ok {
+	if sequence, ok := store.sequenceChunks[sequenceName]; !ok {
 		if store.raft != nil && store.raft.State() != raft.Leader {
 			// Send request to leader.
-			if chunk, err := store.sequenceServiceC.GetSequenceChunkById(context.Background(), &SequenceChunkRequestById{SequenceId:sequenceId}); err != nil {
+			if chunk, err := store.sequenceServiceC.GetSequenceChunk(context.Background(), &SequenceChunkRequest{SequenceName:sequenceName}); err != nil {
 				return nil, err
 			} else {
-				store.sequenceChunks[sequenceId] = &SequenceChunk{
+				store.sequenceChunks[sequenceName] = &SequenceChunk{
 					current:chunk,
 					next:nil,
 					index:1,
