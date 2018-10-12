@@ -14,7 +14,7 @@ type Store struct {
 	chunkMapMutex  *sync.Mutex
 	sequenceChunks map[uint64]*SequenceChunk
 
-	sequenceServiceC *SequenceServiceClient
+	sequenceServiceC *sequenceServiceClient
 
 	NodeId uint64
 }
@@ -46,4 +46,25 @@ func CreateStore(directory string, joinAddr *string) (*Store, error) {
 	store.NodeID = nodeId
 
 	return &store, nil
+}
+
+func (store *Store) Get(key []byte) (value []byte, err error) {
+	err = store.badger.View(func(txn *badger.Txn) error {
+		item, err := txn.Get(key)
+		if err != nil {
+			return err
+		}
+		value, err = item.Value()
+		return err
+	})
+	return value, err
+}
+
+func (store *Store) Set(key, value []byte) (err error) {
+	if store.raft.State() != raft.Leader {
+
+	} else {
+
+	}
+	return nil
 }
