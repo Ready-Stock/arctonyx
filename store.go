@@ -25,7 +25,7 @@ type Store struct {
 
 	sequenceClient *sequenceClient
 	clusterClient  *clusterClient
-	NodeId         uint64
+	nodeId         uint64
 }
 
 // Creates and possibly joins a cluster.
