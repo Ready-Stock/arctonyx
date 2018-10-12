@@ -1,6 +1,7 @@
 package raft_badger
 
 import (
+	"bytes"
 	"encoding/hex"
 	"github.com/Ready-Stock/badger"
 	"github.com/golang/protobuf/proto"
@@ -36,11 +37,16 @@ func (f *fsm) Restore(rc io.ReadCloser) error {
 	return f.badger.Load(rc)
 }
 
+
+
 // Snapshot returns a snapshot of the key-value store.
 func (f *fsm) Snapshot() (raft.FSMSnapshot, error) {
-	return nil, nil
+	w := &bytes.Buffer{}
+	f.badger.Backup(w, 0)
+	return &snapshot{
+		store:w.Bytes(),
+	}, nil
 }
-
 
 
 func (f *fsm) applySet(key, value []byte) error {

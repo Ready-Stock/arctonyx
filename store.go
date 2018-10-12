@@ -1,10 +1,12 @@
 package raft_badger
 
 import (
+	"fmt"
 	"github.com/Ready-Stock/badger"
 	"github.com/golang/protobuf/proto"
 	"github.com/hashicorp/raft"
 	"github.com/kataras/golog"
+	"os"
 	"sync"
 	"time"
 )
@@ -48,7 +50,17 @@ func CreateStore(directory string, joinAddr *string) (*Store, error) {
 
 	stable := stableStore(store)
 	log := logStore(store)
-	ra, err := raft.NewRaft(config, (*fsm)(&store), &log, &stable, nil, nil)
+
+	snapshots, err := raft.NewFileSnapshotStore(directory, retainSnapshotCount, os.Stderr)
+	if err != nil {
+		return nil, fmt.Errorf("file snapshot store: %s", err)
+	}
+
+	ra, err := raft.NewRaft(config, (*fsm)(&store), &log, &stable, snapshots, nil)
+	if err != nil {
+		return nil, fmt.Errorf("new raft: %s", err)
+	}
+	store.raft = ra
 	// nodeId := uint64(-1)
 	// if joinAddr != nil {
 	//
