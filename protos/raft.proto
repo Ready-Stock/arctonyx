@@ -1,6 +1,12 @@
 syntax = "proto3";
 
-package cluster;
+package raft_badger;
+
+service ClusterService {
+    rpc Set(SetRequest) returns (SetResponse) {}
+
+    rpc Get(GetRequest) returns (GetResponse) {}
+}
 
 message SetRequest {
     bytes key = 1;
@@ -20,10 +26,4 @@ message GetResponse {
     bool is_success = 1;
     string error_message = 2;
     bytes value = 3;
-}
-
-service ClusterService {
-    rpc Set(SetRequest) returns (SetResponse) {}
-
-    rpc Get(GetRequest) returns (GetResponse) {}
 }
