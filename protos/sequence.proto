@@ -4,6 +4,7 @@ package raft_badger;
 
 service SequenceService {
     rpc GetNodeId (NodeIdRequest) returns (NodeIdResponse) {}
+    rpc GetSequenceChunkById (sequenceChunkRequestById) returns (sequenceChunkResponse) {}
 }
 
 message NodeIdRequest {
@@ -12,6 +13,10 @@ message NodeIdRequest {
 
 message NodeIdResponse {
     uint64 node_id = 1;
+}
+
+message sequenceChunkRequestById {
+    uint64 sequence_id = 1;
 }
 
 message sequenceChunkResponse {
