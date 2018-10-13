@@ -20,6 +20,7 @@ install:
 - go get -d github.com/Ready-Stock/raft-badger
 - export PATH=$HOME/protoc/bin:$GOPATH/bin:$PATH
 - make protos
+- pwd
 
 
 
