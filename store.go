@@ -24,6 +24,11 @@ var (
 	ServerIdPath = []byte("/_server_id_/")
 )
 
+type KeyValue struct {
+	Key   []byte
+	Value []byte
+}
+
 type Store struct {
 	raft        *raft.Raft
 	badger      *badger.DB
@@ -167,6 +172,24 @@ func (store *Store) Join(nodeId, addr, chatter string) error {
 	return nil
 }
 
+func (store *Store) GetPrefix(prefix []byte) (values []KeyValue, err error) {
+	values = make([]KeyValue, 0)
+	err = store.badger.View(func(txn *badger.Txn) error {
+		it := txn.NewIterator(badger.DefaultIteratorOptions)
+		defer it.Close()
+		valueBytes := make([]byte, 0)
+		for it.Seek(prefix); it.ValidForPrefix(prefix); it.Next() {
+			item:= it.Item()
+			if _, err := item.ValueCopy(valueBytes); err != nil {
+				return err
+			}
+			values = append(values, KeyValue{Key:item.Key(),Value:valueBytes})
+		}
+		return nil
+	})
+	return values, err
+}
+
 func (store *Store) Get(key []byte) (value []byte, err error) {
 	resetCount := 0
 latencyReset:
@@ -231,4 +254,9 @@ func (store *Store) Delete(key []byte) (err error) {
 
 func (store *Store) NodeID() string {
 	return store.nodeId
+}
+
+func (store *Store) Close() {
+	store.raft.Shutdown()
+	store.badger.Close()
 }

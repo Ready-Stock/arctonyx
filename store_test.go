@@ -120,3 +120,38 @@ func TestCreateStoreMultipleServers(t *testing.T) {
 		return
 	}
 }
+
+
+func TestGetPrefix(t *testing.T) {
+	tmpDir, _ := ioutil.TempDir("", "store_test")
+	defer os.RemoveAll(tmpDir)
+	store1, err := raft_badger.CreateStore(tmpDir, "127.0.0.1:0", "", "")
+	if err != nil {
+		t.Error(err)
+		t.Fail()
+		return
+	}
+	// Simple way to ensure there is a leader.
+	time.Sleep(5 * time.Second)
+	err = store1.Set([]byte("/test"), []byte("value"))
+	if err != nil {
+		t.Error(err)
+		t.Fail()
+		return
+	}
+
+	val, err := store1.GetPrefix([]byte("/"))
+	if err != nil {
+		t.Error(err)
+		t.Fail()
+		return
+	}
+	if len(val) == 0 {
+		t.Error("no values found")
+		t.Fail()
+		return
+	}
+	for _, kv := range val {
+		golog.Debugf("Key: %s Value: %s", string(kv.Key), string(kv.Value))
+	}
+}
