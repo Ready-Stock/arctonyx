@@ -26,3 +26,10 @@ message sequenceChunkResponse {
     uint64 offset = 4;
     uint64 count = 5;
 }
+
+message sequence {
+    uint64 current_value = 1;
+    uint64 last_partition_index = 2;
+    uint64 max_partition_index = 3;
+    uint64 partitions = 4;
+}

@@ -20,28 +20,23 @@ const (
 	raftTimeout         = 10 * time.Second
 )
 
-var (
-	ServerIdPath = []byte("/_server_id_/")
-)
-
 type KeyValue struct {
 	Key   []byte
 	Value []byte
 }
 
 type Store struct {
-	raft        *raft.Raft
-	badger      *badger.DB
-	sequenceIds *badger.Sequence
-
-	chunkMapMutex  *sync.Mutex
-	sequenceChunks map[string]*SequenceChunk
-
-	sequenceClient *sequenceClient
-	clusterClient  *clusterClient
-	server         *clusterServer
-
-	nodeId string
+	raft              *raft.Raft
+	badger            *badger.DB
+	sequenceIds       *badger.Sequence
+	chunkMapMutex     *sync.Mutex
+	sequenceCacheSync *sync.Mutex
+	sequenceChunks    map[string]*SequenceChunk
+	sequenceCache     map[string]*Sequence
+	sequenceClient    *sequenceClient
+	clusterClient     *clusterClient
+	server            *clusterServer
+	nodeId            string
 }
 
 // Creates and possibly joins a cluster.
@@ -49,7 +44,11 @@ func CreateStore(directory string, listen string, protoListen string, joinAddr s
 	// Setup Raft configuration.
 	config := raft.DefaultConfig()
 	config.CommitTimeout = 10 * time.Millisecond
-	store := Store{}
+	store := Store{
+		chunkMapMutex:     new(sync.Mutex),
+		sequenceCacheSync: new(sync.Mutex),
+		sequenceCache: map[string]*Sequence{},
+	}
 
 	if listen == "" {
 		listen = ":6543"
@@ -77,12 +76,12 @@ func CreateStore(directory string, listen string, protoListen string, joinAddr s
 	stable := stableStore(store)
 	log := logStore(store)
 	nodeId := ""
-	if id, err := stable.Get(ServerIdPath); err != nil {
+	if id, err := stable.Get(serverIdPath); err != nil {
 		if err.Error() == "Key not found" {
 			if uuid, err := uuid2.NewV4(); err != nil {
 				return nil, err
 			} else {
-				stable.Set(ServerIdPath, []byte(uuid.String()))
+				stable.Set(serverIdPath, []byte(uuid.String()))
 				nodeId = string(uuid.String())
 			}
 		} else {
@@ -93,7 +92,7 @@ func CreateStore(directory string, listen string, protoListen string, joinAddr s
 			if uuid, err := uuid2.NewV4(); err != nil {
 				return nil, err
 			} else {
-				stable.Set(ServerIdPath, []byte(uuid.String()))
+				stable.Set(serverIdPath, []byte(uuid.String()))
 				nodeId = string(uuid.String())
 			}
 		} else {
@@ -179,11 +178,11 @@ func (store *Store) GetPrefix(prefix []byte) (values []KeyValue, err error) {
 		defer it.Close()
 		valueBytes := make([]byte, 0)
 		for it.Seek(prefix); it.ValidForPrefix(prefix); it.Next() {
-			item:= it.Item()
+			item := it.Item()
 			if _, err := item.ValueCopy(valueBytes); err != nil {
 				return err
 			}
-			values = append(values, KeyValue{Key:item.Key(),Value:valueBytes})
+			values = append(values, KeyValue{Key: item.Key(), Value: valueBytes})
 		}
 		return nil
 	})
