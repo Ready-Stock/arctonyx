@@ -6,6 +6,7 @@ import (
 	"github.com/golang/protobuf/proto"
 	"github.com/hashicorp/raft"
 	"github.com/kataras/golog"
+	uuid2 "github.com/satori/go.uuid"
 	"net"
 	"os"
 	"sync"
@@ -59,6 +60,20 @@ func CreateStore(directory string, joinAddr *string) (*Store, error) {
 
 	stable := stableStore(store)
 	log := logStore(store)
+	if id, err := stable.Get([]byte("/_server_id_/")); err != nil {
+		if err.Error() == "Key not found" {
+			if uuid, err := uuid2.NewV4(); err != nil {
+				return nil, err
+			} else {
+				stable.Set([]byte("/_server_id_/"), []byte(uuid.String()))
+				config.LocalID = raft.ServerID(string(uuid.String()))
+			}
+		} else {
+			return nil, err
+		}
+	} else {
+		config.LocalID = raft.ServerID(string(id))
+	}
 
 	snapshots, err := raft.NewFileSnapshotStore(directory, retainSnapshotCount, os.Stderr)
 	if err != nil {
