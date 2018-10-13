@@ -18,9 +18,9 @@ install:
 - mkdir -p "$HOME"/src && ln -s "$HOME"/protoc "$HOME"/src/protobuf
 - go get -u github.com/golang/protobuf/protoc-gen-go
 - go get -d github.com/Ready-Stock/raft-badger
-- make protos
-
-env:
 - PATH=$HOME/protoc/bin:$PATH
 - PATH=$PATH:$GOPATH/bin
+- make protos
+
+
 
