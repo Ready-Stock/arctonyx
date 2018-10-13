@@ -42,6 +42,7 @@ type Store struct {
 func CreateStore(directory string, listen string, joinAddr string) (*Store, error) {
 	// Setup Raft configuration.
 	config := raft.DefaultConfig()
+	config.CommitTimeout = 10 * time.Millisecond
 	store := Store{}
 
 
@@ -161,7 +162,12 @@ func (store *Store) Get(key []byte) (value []byte, err error) {
 	err = store.badger.View(func(txn *badger.Txn) error {
 		item, err := txn.Get(key)
 		if err != nil {
-			return err
+			if err.Error() != "Key not found" {
+				return err
+			} else {
+				value = make([]byte, 0)
+				return nil
+			}
 		}
 		value, err = item.Value()
 		return err
@@ -170,7 +176,7 @@ func (store *Store) Get(key []byte) (value []byte, err error) {
 }
 
 func (store *Store) Set(key, value []byte) (err error) {
-	c := &Command{Operation:Operation_SET, Key:key, Value:value}
+	c := &Command{Operation:Operation_SET, Key:key, Value:value,Timestamp:uint64(time.Now().UnixNano())}
 	if store.raft.State() != raft.Leader {
 		if store.raft.Leader() == "" {
 			return errors.New("no leader in cluster")
@@ -184,11 +190,12 @@ func (store *Store) Set(key, value []byte) (err error) {
 	if err != nil {
 		return err
 	}
-	return store.raft.Apply(b, raftTimeout).Error()
+	r := store.raft.Apply(b, raftTimeout)
+	return r.Error()
 }
 
 func (store *Store) Delete(key []byte) (err error) {
-	c := &Command{Operation:Operation_DELETE, Key:key, Value:nil}
+	c := &Command{Operation:Operation_DELETE, Key:key, Value:nil,Timestamp:uint64(time.Now().UnixNano())}
 	if store.raft.State() != raft.Leader {
 		if _, err := store.clusterClient.sendCommand(store.raft.Leader(), c); err != nil {
 			return err
@@ -199,7 +206,8 @@ func (store *Store) Delete(key []byte) (err error) {
 	if err != nil {
 		return err
 	}
-	return store.raft.Apply(b, raftTimeout).Error()
+	r := store.raft.Apply(b, raftTimeout)
+	return r.Error()
 }
 
 func (store *Store) NodeID() string {

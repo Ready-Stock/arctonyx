@@ -77,7 +77,7 @@ func TestCreateStoreMultipleServers(t *testing.T) {
 		t.Fail()
 		return
 	}
-	time.Sleep(1 * time.Second)
+	time.Sleep(20 * time.Millisecond)
 	val, err := store2.Get([]byte("test"))
 	if err != nil {
 		t.Error(err)
@@ -91,4 +91,11 @@ func TestCreateStoreMultipleServers(t *testing.T) {
 		return
 	}
 
+	store1.Set([]byte("test"), []byte("value1"))
+	store1.Set([]byte("test"), []byte("value1"))
+	store1.Set([]byte("test"), []byte("value1"))
+	store1.Set([]byte("test"), []byte("value1"))
+	store1.Set([]byte("test"), []byte("value1"))
+	store1.Set([]byte("test"), []byte("value1"))
+	store1.Set([]byte("test"), []byte("value1"))
 }

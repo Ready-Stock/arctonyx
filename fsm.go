@@ -9,6 +9,7 @@ import (
 	"github.com/kataras/go-errors"
 	"github.com/kataras/golog"
 	"io"
+	"time"
 )
 
 type fsm Store
@@ -19,7 +20,7 @@ func (f *fsm) Apply(l *raft.Log) interface{} {
 		golog.Fatalf("failed to unmarshal command: %s. %s", err.Error(), hex.Dump(l.Data))
 		return err
 	}
-
+	golog.Debugf("[%s] Delay [%s]", f.nodeId, time.Since(time.Unix(0, int64(c.Timestamp))))
 	switch c.Operation {
 	case Operation_GET:
 		return nil
