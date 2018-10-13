@@ -51,12 +51,14 @@ func (f *fsm) Snapshot() (raft.FSMSnapshot, error) {
 
 func (f *fsm) applySet(key, value []byte) error {
 	return f.badger.Update(func(txn *badger.Txn) error {
+		golog.Debugf("[%s] Setting Key: %s To Value: %s", f.nodeId, string(key), string(value))
 		return txn.Set(key, value)
 	})
 }
 
 func (f *fsm) applyDelete(key []byte) error {
 	return f.badger.Update(func(txn *badger.Txn) error {
+		golog.Debugf("[%s] Deleting Key: %s", f.nodeId, string(key))
 		return txn.Delete(key)
 	})
 }

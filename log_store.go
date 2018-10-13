@@ -24,13 +24,13 @@ func (log *logStore) GetLog(index uint64, raftLog *raft.Log) error {
 	return log.badger.View(func(txn *badger.Txn) error {
 		item, err := txn.Get(getKeyForIndex(index))
 		if err != nil {
-			return err
+			return raft.ErrLogNotFound
 		}
 		value, err := item.Value()
 		if err != nil {
 			return err
 		}
-		err = json.Unmarshal(value, raftLog)
+		err = json.Unmarshal(value, &raftLog)
 		if err != nil {
 			return err
 		}

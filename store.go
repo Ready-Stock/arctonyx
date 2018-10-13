@@ -19,6 +19,10 @@ const (
 	raftTimeout         = 10 * time.Second
 )
 
+var (
+	ServerIdPath = []byte("/_server_id_/")
+)
+
 
 type Store struct {
 	raft        *raft.Raft
@@ -30,6 +34,8 @@ type Store struct {
 
 	sequenceClient *sequenceClient
 	clusterClient  *clusterClient
+
+	nodeId string
 }
 
 // Creates and possibly joins a cluster.
@@ -65,12 +71,12 @@ func CreateStore(directory string, listen string, joinAddr string) (*Store, erro
 	stable := stableStore(store)
 	log := logStore(store)
 	nodeId := ""
-	if id, err := stable.Get([]byte("/_server_id_/")); err != nil {
+	if id, err := stable.Get(ServerIdPath); err != nil {
 		if err.Error() == "Key not found" {
 			if uuid, err := uuid2.NewV4(); err != nil {
 				return nil, err
 			} else {
-				stable.Set([]byte("/_server_id_/"), []byte(uuid.String()))
+				stable.Set(ServerIdPath, []byte(uuid.String()))
 				nodeId = string(uuid.String())
 			}
 		} else {
@@ -81,7 +87,7 @@ func CreateStore(directory string, listen string, joinAddr string) (*Store, erro
 			if uuid, err := uuid2.NewV4(); err != nil {
 				return nil, err
 			} else {
-				stable.Set([]byte("/_server_id_/"), []byte(uuid.String()))
+				stable.Set(ServerIdPath, []byte(uuid.String()))
 				nodeId = string(uuid.String())
 			}
 		} else {
@@ -89,6 +95,7 @@ func CreateStore(directory string, listen string, joinAddr string) (*Store, erro
 		}
 	}
 	config.LocalID = raft.ServerID(nodeId)
+	store.nodeId = nodeId
 	snapshots, err := raft.NewFileSnapshotStore(directory, retainSnapshotCount, os.Stderr)
 	if err != nil {
 		return nil, fmt.Errorf("file snapshot store: %s", err)
@@ -111,12 +118,6 @@ func CreateStore(directory string, listen string, joinAddr string) (*Store, erro
 		f := store.raft.BootstrapCluster(configuration)
 		if f.Error() != nil {
 			return nil, f.Error()
-		}
-	}
-
-	if joinAddr != "" {
-		if err := store.Join(nodeId, joinAddr); err != nil {
-			return nil, err
 		}
 	}
 	return &store, nil
@@ -199,4 +200,8 @@ func (store *Store) Delete(key []byte) (err error) {
 		return err
 	}
 	return store.raft.Apply(b, raftTimeout).Error()
+}
+
+func (store *Store) NodeID() string {
+	return store.nodeId
 }
