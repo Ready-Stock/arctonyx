@@ -23,6 +23,17 @@ func (server *clusterServer) SendCommand(ctx context.Context, command *Command) 
 	}
 }
 
+func (server *clusterServer) Join(ctx context.Context, join *JoinRequest) (*JoinResponse, error) {
+	response := &JoinResponse{}
+	if err := server.Store.Join(join.Id, join.RaftAddress, join.ServerAddress); err != nil {
+		response.IsSuccess = false
+		response.ErrorMessage = err.Error()
+	} else {
+		response.IsSuccess = true
+	}
+	return response, nil
+}
+
 func (server *clusterServer) serverSet(command Command) (*CommandResponse, error) {
 	response := &CommandResponse{}
 	if err := server.Store.Set(command.Key, command.Value); err != nil {

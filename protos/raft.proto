@@ -4,6 +4,7 @@ package raft_badger;
 
 service ClusterService {
     rpc SendCommand (Command) returns (CommandResponse) {}
+    rpc Join (JoinRequest) returns (JoinResponse) {}
 }
 
 enum Operation {
@@ -24,4 +25,15 @@ message CommandResponse {
     bool is_success = 2;
     string error_message = 3;
     bytes value = 4;
+}
+
+message JoinRequest {
+    string raft_address = 1;
+    string server_address = 2;
+    string id = 3;
+}
+
+message JoinResponse {
+    bool is_success = 1;
+    string error_message = 2;
 }

@@ -104,4 +104,19 @@ func TestCreateStoreMultipleServers(t *testing.T) {
 		t.Fail()
 		return
 	}
+
+	store1.Delete([]byte("test"))
+	time.Sleep(100 * time.Millisecond)
+	val2, err := store2.Get([]byte("test"))
+	if err != nil {
+		t.Error(err)
+		t.Fail()
+		return
+	}
+
+	if string(val2) == "value1" {
+		t.Errorf("value did not match, found: %s", val1)
+		t.Fail()
+		return
+	}
 }

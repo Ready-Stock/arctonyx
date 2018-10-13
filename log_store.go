@@ -83,7 +83,6 @@ func (log *logStore) DeleteRange(min, max uint64) error {
 		}
 		return nil
 	})
-
 	return nil
 }
 

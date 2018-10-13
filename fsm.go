@@ -22,14 +22,12 @@ func (f *fsm) Apply(l *raft.Log) interface{} {
 	}
 	golog.Debugf("[%s] Delay [%s]\n%s", f.nodeId, time.Since(time.Unix(0, int64(c.Timestamp))), hex.Dump(l.Data))
 	switch c.Operation {
-	case Operation_GET:
-		return nil
 	case Operation_SET:
 		return f.applySet(c.Key, c.Value)
 	case Operation_DELETE:
 		return f.applyDelete(c.Key)
 	default:
-		return errors.New("unrecognized command operation: %d").Format(c.Operation)
+		return errors.New("unsupported command operation: %d").Format(c.Operation)
 	}
 }
 

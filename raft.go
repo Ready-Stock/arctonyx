@@ -34,3 +34,7 @@ func (client *clusterClient) sendCommand(leaderAddr raft.ServerAddress, command 
 		return result, nil
 	}
 }
+
+func (client *clusterClient) joinCluster(addr string) (*JoinResponse, error) {
+	return nil, nil
+}
