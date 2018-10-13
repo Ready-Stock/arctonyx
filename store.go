@@ -8,6 +8,7 @@ import (
 	"github.com/kataras/go-errors"
 	"github.com/kataras/golog"
 	uuid2 "github.com/satori/go.uuid"
+	"google.golang.org/grpc"
 	"net"
 	"os"
 	"sync"
@@ -23,7 +24,6 @@ var (
 	ServerIdPath = []byte("/_server_id_/")
 )
 
-
 type Store struct {
 	raft        *raft.Raft
 	badger      *badger.DB
@@ -34,17 +34,17 @@ type Store struct {
 
 	sequenceClient *sequenceClient
 	clusterClient  *clusterClient
+	server         *clusterServer
 
 	nodeId string
 }
 
 // Creates and possibly joins a cluster.
-func CreateStore(directory string, listen string, joinAddr string) (*Store, error) {
+func CreateStore(directory string, listen string, protoListen string, joinAddr string) (*Store, error) {
 	// Setup Raft configuration.
 	config := raft.DefaultConfig()
 	config.CommitTimeout = 10 * time.Millisecond
 	store := Store{}
-
 
 	if listen == "" {
 		listen = ":6543"
@@ -121,10 +121,19 @@ func CreateStore(directory string, listen string, joinAddr string) (*Store, erro
 			return nil, f.Error()
 		}
 	}
+	if protoListen != "" {
+		lis, err := net.Listen("tcp", protoListen)
+		if err != nil {
+			return nil, err
+		}
+		grpcServer := grpc.NewServer()
+		RegisterClusterServiceServer(grpcServer, &clusterServer{store})
+		go grpcServer.Serve(lis)
+	}
 	return &store, nil
 }
 
-func (store *Store) Join(nodeId, addr string) error {
+func (store *Store) Join(nodeId, addr, chatter string) error {
 	golog.Debugf("received join request from remote node [%s] at [%s]", nodeId, addr)
 
 	configFuture := store.raft.GetConfiguration()
@@ -159,6 +168,8 @@ func (store *Store) Join(nodeId, addr string) error {
 }
 
 func (store *Store) Get(key []byte) (value []byte, err error) {
+	resetCount := 0
+latencyReset:
 	err = store.badger.View(func(txn *badger.Txn) error {
 		item, err := txn.Get(key)
 		if err != nil {
@@ -172,16 +183,23 @@ func (store *Store) Get(key []byte) (value []byte, err error) {
 		value, err = item.Value()
 		return err
 	})
+	if resetCount == 0 {
+		if len(value) == 0 && err == nil {
+			resetCount++
+			time.Sleep(100 * time.Millisecond)
+			goto latencyReset
+		}
+	}
 	return value, err
 }
 
 func (store *Store) Set(key, value []byte) (err error) {
-	c := &Command{Operation:Operation_SET, Key:key, Value:value,Timestamp:uint64(time.Now().UnixNano())}
+	c := &Command{Operation: Operation_SET, Key: key, Value: value, Timestamp: uint64(time.Now().UnixNano())}
 	if store.raft.State() != raft.Leader {
 		if store.raft.Leader() == "" {
 			return errors.New("no leader in cluster")
 		}
- 		if _, err := store.clusterClient.sendCommand(store.raft.Leader(), c); err != nil {
+		if _, err := store.clusterClient.sendCommand(store.raft.Leader(), c); err != nil {
 			return err
 		}
 		return nil
@@ -195,7 +213,7 @@ func (store *Store) Set(key, value []byte) (err error) {
 }
 
 func (store *Store) Delete(key []byte) (err error) {
-	c := &Command{Operation:Operation_DELETE, Key:key, Value:nil,Timestamp:uint64(time.Now().UnixNano())}
+	c := &Command{Operation: Operation_DELETE, Key: key, Value: nil, Timestamp: uint64(time.Now().UnixNano())}
 	if store.raft.State() != raft.Leader {
 		if _, err := store.clusterClient.sendCommand(store.raft.Leader(), c); err != nil {
 			return err

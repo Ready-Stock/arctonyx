@@ -20,7 +20,7 @@ func (f *fsm) Apply(l *raft.Log) interface{} {
 		golog.Fatalf("failed to unmarshal command: %s. %s", err.Error(), hex.Dump(l.Data))
 		return err
 	}
-	golog.Debugf("[%s] Delay [%s]", f.nodeId, time.Since(time.Unix(0, int64(c.Timestamp))))
+	golog.Debugf("[%s] Delay [%s]\n%s", f.nodeId, time.Since(time.Unix(0, int64(c.Timestamp))), hex.Dump(l.Data))
 	switch c.Operation {
 	case Operation_GET:
 		return nil
@@ -38,8 +38,6 @@ func (f *fsm) Restore(rc io.ReadCloser) error {
 	return f.badger.Load(rc)
 }
 
-
-
 // Snapshot returns a snapshot of the key-value store.
 func (f *fsm) Snapshot() (raft.FSMSnapshot, error) {
 	w := &bytes.Buffer{}
@@ -48,7 +46,6 @@ func (f *fsm) Snapshot() (raft.FSMSnapshot, error) {
 		store:w.Bytes(),
 	}, nil
 }
-
 
 func (f *fsm) applySet(key, value []byte) error {
 	return f.badger.Update(func(txn *badger.Txn) error {

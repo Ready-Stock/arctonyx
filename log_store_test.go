@@ -4,26 +4,40 @@ import (
 	"encoding/hex"
 	"fmt"
 	"github.com/Ready-Stock/badger"
+	"github.com/satori/go.uuid"
 	"io/ioutil"
 	"os"
 	"testing"
 )
 
-func TestLogStore_FirstIndex(t *testing.T) {
+func newLogStore() (*logStore, error) {
 	store := Store{}
-	tmpDir, _ := ioutil.TempDir("", "store_test")
+	randomName, err := uuid.NewV4()
+	if err != nil {
+		return nil, err
+	}
+	tmpDir, _ := ioutil.TempDir("", randomName.String())
 	defer os.RemoveAll(tmpDir)
 	opts := badger.DefaultOptions
 	opts.Dir = tmpDir
 	opts.ValueDir = tmpDir
 	db, err := badger.Open(opts)
 	if err != nil {
+		return nil, err
+	}
+	store.badger = db
+	ls := logStore(store)
+	return &ls, nil
+}
+
+func TestLogStore_FirstIndex(t *testing.T) {
+	ls, err := newLogStore()
+	if err != nil {
 		t.Error(err)
 		t.Fail()
 		return
 	}
-	store.badger = db
-	ls := logStore(store)
+
 	if index, err := ls.FirstIndex(); err != nil {
 		t.Error(err)
 		t.Fail()
@@ -34,6 +48,15 @@ func TestLogStore_FirstIndex(t *testing.T) {
 			t.Fail()
 			return
 		}
+	}
+}
+
+func TestLogStore_LastIndex(t *testing.T) {
+	ls, err := newLogStore()
+	if err != nil {
+		t.Error(err)
+		t.Fail()
+		return
 	}
 
 	if index, err := ls.LastIndex(); err != nil {

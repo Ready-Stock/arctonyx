@@ -18,7 +18,7 @@ func TestMain(m *testing.M) {
 func TestCreateStore(t *testing.T) {
 	tmpDir, _ := ioutil.TempDir("", "store_test")
 	defer os.RemoveAll(tmpDir)
-	store1, err := raft_badger.CreateStore(tmpDir, "127.0.0.1:0", "")
+	store1, err := raft_badger.CreateStore(tmpDir, "127.0.0.1:0", "", "")
 	if err != nil {
 		t.Error(err)
 		t.Fail()
@@ -53,7 +53,7 @@ func TestCreateStoreMultipleServers(t *testing.T) {
 
 	tmpDir2, _ := ioutil.TempDir("", "store_test2")
 	defer os.RemoveAll(tmpDir2)
-	store1, err := raft_badger.CreateStore(tmpDir1, ":6543", "")
+	store1, err := raft_badger.CreateStore(tmpDir1, ":6543", ":6500", "")
 	if err != nil {
 		t.Error(err)
 		t.Fail()
@@ -62,7 +62,7 @@ func TestCreateStoreMultipleServers(t *testing.T) {
 	// Simple way to ensure there is a leader.
 	time.Sleep(5 * time.Second)
 
-	store2, err := raft_badger.CreateStore(tmpDir2, ":6544", ":6543")
+	store2, err := raft_badger.CreateStore(tmpDir2, ":6544",":6501", ":6543")
 	if err != nil {
 		t.Error(err)
 		t.Fail()
@@ -77,7 +77,7 @@ func TestCreateStoreMultipleServers(t *testing.T) {
 		t.Fail()
 		return
 	}
-	time.Sleep(20 * time.Millisecond)
+	//time.Sleep(100 * time.Millisecond)
 	val, err := store2.Get([]byte("test"))
 	if err != nil {
 		t.Error(err)
@@ -92,10 +92,17 @@ func TestCreateStoreMultipleServers(t *testing.T) {
 	}
 
 	store1.Set([]byte("test"), []byte("value1"))
-	store1.Set([]byte("test"), []byte("value1"))
-	store1.Set([]byte("test"), []byte("value1"))
-	store1.Set([]byte("test"), []byte("value1"))
-	store1.Set([]byte("test"), []byte("value1"))
-	store1.Set([]byte("test"), []byte("value1"))
-	store1.Set([]byte("test"), []byte("value1"))
+	//time.Sleep(100 * time.Millisecond)
+	val1, err := store2.Get([]byte("test"))
+	if err != nil {
+		t.Error(err)
+		t.Fail()
+		return
+	}
+
+	if string(val1) != "value1" {
+		t.Errorf("value did not match, found: %s", val1)
+		t.Fail()
+		return
+	}
 }

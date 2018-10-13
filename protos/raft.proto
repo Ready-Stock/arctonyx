@@ -3,8 +3,7 @@ syntax = "proto3";
 package raft_badger;
 
 service ClusterService {
-    rpc SendCommand (Command) returns (CommandResponse) {
-    }
+    rpc SendCommand (Command) returns (CommandResponse) {}
 }
 
 enum Operation {
