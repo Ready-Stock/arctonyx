@@ -25,6 +25,9 @@ func (stable *stableStore) Get(key []byte) (val []byte, err error) {
 			}
 		}
 	})
+	if err != nil && err.Error() == "Key not found" {
+		return make([]byte, 0), nil
+	}
 	return val, err
 }
 

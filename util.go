@@ -14,6 +14,9 @@ func uint64ToBytes(v uint64) []byte {
 }
 
 func bytesToUint64(b []byte) uint64 {
+	if len(b) == 0 {
+		b = make([]byte, 8)
+	}
 	_ = b[7] // bounds check hint to compiler; see golang.org/issue/14808
 	return uint64(b[7]) | uint64(b[6])<<8 | uint64(b[5])<<16 | uint64(b[4])<<24 |
 		uint64(b[3])<<32 | uint64(b[2])<<40 | uint64(b[1])<<48 | uint64(b[0])<<56
