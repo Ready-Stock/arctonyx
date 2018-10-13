@@ -1,9 +1,9 @@
 .PHONY: default build protos
 default: build
 
-build:
-	protos
+build: protos
 	go build
+	go test -v ./
 
 PROTOS_DIRECTORY = ./protos
 
