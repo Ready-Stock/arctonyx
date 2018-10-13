@@ -183,9 +183,10 @@ latencyReset:
 		value, err = item.Value()
 		return err
 	})
-	if resetCount == 0 {
-		if len(value) == 0 && err == nil {
+	if resetCount < 10 {
+		if len(value) == 0 || err != nil {
 			resetCount++
+			golog.Debugf("couldnt find value for key: %s waiting 100ms", string(key))
 			time.Sleep(100 * time.Millisecond)
 			goto latencyReset
 		}

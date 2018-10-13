@@ -69,7 +69,7 @@ func TestCreateStoreMultipleServers(t *testing.T) {
 		return
 	}
 
-	store1.Join(store2.NodeID(), ":6544")
+	store1.Join(store2.NodeID(), ":6544", ":6501")
 	time.Sleep(5 * time.Second)
 	err = store1.Set([]byte("test"), []byte("value"))
 	if err != nil {
@@ -77,7 +77,6 @@ func TestCreateStoreMultipleServers(t *testing.T) {
 		t.Fail()
 		return
 	}
-	//time.Sleep(100 * time.Millisecond)
 	val, err := store2.Get([]byte("test"))
 	if err != nil {
 		t.Error(err)
@@ -92,7 +91,7 @@ func TestCreateStoreMultipleServers(t *testing.T) {
 	}
 
 	store1.Set([]byte("test"), []byte("value1"))
-	//time.Sleep(100 * time.Millisecond)
+	time.Sleep(100 * time.Millisecond)
 	val1, err := store2.Get([]byte("test"))
 	if err != nil {
 		t.Error(err)
