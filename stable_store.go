@@ -2,12 +2,14 @@ package raft_badger
 
 import (
 	"github.com/Ready-Stock/badger"
+	"github.com/kataras/golog"
 )
 
 type stableStore Store
 
 func (stable *stableStore) Set(key, val []byte) error {
 	return stable.badger.Update(func(txn *badger.Txn) error {
+		golog.Debugf("Setting Key: %s To Value: %s", string(key), string(val))
 		return txn.Set(key, val)
 	})
 }

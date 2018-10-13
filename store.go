@@ -35,18 +35,7 @@ type Store struct {
 // Creates and possibly joins a cluster.
 func CreateStore(directory string, listen string, joinAddr string) (*Store, error) {
 	// Setup Raft configuration.
-	config := &raft.Config{
-		ProtocolVersion:    3,
-		HeartbeatTimeout:   5 * time.Second,
-		ElectionTimeout:    5 * time.Second,
-		CommitTimeout:      50 * time.Millisecond,
-		MaxAppendEntries:   64,
-		ShutdownOnRemove:   true,
-		TrailingLogs:       10240,
-		SnapshotInterval:   120 * time.Second,
-		SnapshotThreshold:  8192,
-		LeaderLeaseTimeout: 500 * time.Millisecond,
-	}
+	config := raft.DefaultConfig()
 	store := Store{}
 
 

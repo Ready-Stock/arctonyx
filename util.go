@@ -14,7 +14,7 @@ func uint64ToBytes(v uint64) []byte {
 }
 
 func bytesToUint64(b []byte) uint64 {
-	if len(b) == 0 {
+	if len(b) == 0 { // I added this because i was finding rare byte arrays being passed with 0 length, because the value is 0
 		b = make([]byte, 8)
 	}
 	_ = b[7] // bounds check hint to compiler; see golang.org/issue/14808
