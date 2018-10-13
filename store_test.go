@@ -26,7 +26,7 @@ func TestCreateStore(t *testing.T) {
 	}
 	// Simple way to ensure there is a leader.
 	time.Sleep(5 * time.Second)
-	err = store1.Set([]byte("test"), []byte("value3"))
+	err = store1.Set([]byte("test"), []byte("value"))
 	if err != nil {
 		t.Error(err)
 		t.Fail()
