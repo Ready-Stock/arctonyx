@@ -9,8 +9,8 @@ import (
 )
 
 const (
-	SequenceRangeSize   = 100
-	SequencePartitions  = 17
+	SequenceRangeSize   = 1000
+	SequencePartitions  = 5
 	SequencePreretrieve = 50
 )
 
