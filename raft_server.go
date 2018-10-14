@@ -9,6 +9,9 @@ import (
 type clusterServer struct {
 	Store
 }
+func (server *clusterServer) GetSequenceChunk(ctx context.Context, request *SequenceChunkRequest) (*SequenceChunkResponse, error) {
+	return server.getSequenceChunk(request.SequenceName)
+}
 
 func (server *clusterServer) SendCommand(ctx context.Context, command *Command) (*CommandResponse, error) {
 	switch command.Operation {

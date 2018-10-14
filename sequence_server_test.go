@@ -20,7 +20,7 @@ func TestSequenceServer_GetSequenceChunk(t *testing.T) {
 	}
 	// Simple way to ensure there is a leader.
 	time.Sleep(5 * time.Second)
-	sequence := sequenceServer{*store1}
+	sequence := clusterServer{*store1}
 	response1, err := sequence.getSequenceChunk("test")
 	if err != nil {
 		t.Error(err)

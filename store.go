@@ -33,21 +33,21 @@ type Store struct {
 	sequenceCacheSync *sync.Mutex
 	sequenceChunks    map[string]*SequenceChunk
 	sequenceCache     map[string]*Sequence
-	sequenceClient    *sequenceClient
 	clusterClient     *clusterClient
 	server            *clusterServer
 	nodeId            string
 }
 
 // Creates and possibly joins a cluster.
-func CreateStore(directory string, listen string, protoListen string, joinAddr string) (*Store, error) {
+func CreateStore(directory string, listen string, chatterListen string, joinAddr string) (*Store, error) {
 	// Setup Raft configuration.
 	config := raft.DefaultConfig()
 	config.CommitTimeout = 10 * time.Millisecond
 	store := Store{
 		chunkMapMutex:     new(sync.Mutex),
 		sequenceCacheSync: new(sync.Mutex),
-		sequenceCache: map[string]*Sequence{},
+		sequenceCache:     map[string]*Sequence{},
+		sequenceChunks:    map[string]*SequenceChunk{},
 	}
 
 	if listen == "" {
@@ -125,15 +125,16 @@ func CreateStore(directory string, listen string, protoListen string, joinAddr s
 			return nil, f.Error()
 		}
 	}
-	if protoListen != "" {
-		lis, err := net.Listen("tcp", protoListen)
-		if err != nil {
-			return nil, err
-		}
-		grpcServer := grpc.NewServer()
-		RegisterClusterServiceServer(grpcServer, &clusterServer{store})
-		go grpcServer.Serve(lis)
+	lis, err := net.Listen("tcp", chatterListen)
+	if err != nil {
+		return nil, err
 	}
+	grpcServer := grpc.NewServer()
+	RegisterClusterServiceServer(grpcServer, &clusterServer{store})
+	go grpcServer.Serve(lis)
+
+	store.clusterClient = &clusterClient{Store: store, sync: new(sync.Mutex)}
+
 	return &store, nil
 }
 
@@ -166,9 +167,33 @@ func (store *Store) Join(nodeId, addr, chatter string) error {
 	if f.Error() != nil {
 		return f.Error()
 	}
+	store.setPeer(nodeId, addr, chatter)
 	golog.Infof("node %s at %s joined successfully", nodeId, addr)
-
 	return nil
+}
+
+func (store *Store) setPeer(nodeId, addr, chatter string) error {
+	peer := &Peer{
+		NodeId:      nodeId,
+		RaftAddr:    addr,
+		ChatterAddr: chatter,
+	}
+	b, err := proto.Marshal(peer)
+	if err != nil {
+		return err
+	}
+	return store.Set([]byte(fmt.Sprintf("%s%s", peerPath, addr)), b)
+}
+
+func (store *Store) getPeer(server raft.ServerAddress) (addr string, err error) {
+	peer := Peer{}
+	bytes, err := store.Get([]byte(fmt.Sprintf("%s%s", peerPath, server)))
+	if err != nil {
+		return addr, err
+	}
+	err = proto.Unmarshal(bytes, &peer)
+	addr = peer.ChatterAddr
+	return addr, nil
 }
 
 func (store *Store) GetPrefix(prefix []byte) (values []KeyValue, err error) {
@@ -222,7 +247,7 @@ func (store *Store) Set(key, value []byte) (err error) {
 		if store.raft.Leader() == "" {
 			return errors.New("no leader in cluster")
 		}
-		if _, err := store.clusterClient.sendCommand(store.raft.Leader(), c); err != nil {
+		if _, err := store.clusterClient.sendCommand(c); err != nil {
 			return err
 		}
 		return nil
@@ -238,7 +263,7 @@ func (store *Store) Set(key, value []byte) (err error) {
 func (store *Store) Delete(key []byte) (err error) {
 	c := &Command{Operation: Operation_DELETE, Key: key, Value: nil, Timestamp: uint64(time.Now().UnixNano())}
 	if store.raft.State() != raft.Leader {
-		if _, err := store.clusterClient.sendCommand(store.raft.Leader(), c); err != nil {
+		if _, err := store.clusterClient.sendCommand(c); err != nil {
 			return err
 		}
 		return nil

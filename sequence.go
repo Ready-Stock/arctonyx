@@ -1,76 +1,133 @@
 package raft_badger
 
 import (
-	"github.com/kataras/go-errors"
+	"fmt"
+	"github.com/golang/protobuf/proto"
+	"github.com/hashicorp/raft"
+	"github.com/kataras/golog"
 	"sync"
 )
 
-type sequenceClient struct {
-	sequenceServiceC *sequenceServiceClient
+const (
+	SequenceRangeSize   = 100
+	SequencePartitions  = 17
+	SequencePreretrieve = 50
+)
+
+func (store *Store) getSequenceChunk(sequenceName string) (*SequenceChunkResponse, error) {
+	if store.raft.State() != raft.Leader { // Only the leader can manage sequences
+		return store.clusterClient.getNextChunkInSequence(sequenceName)
+	}
+	store.sequenceCacheSync.Lock()
+	defer store.sequenceCacheSync.Unlock()
+	sequenceCache, ok := store.sequenceCache[sequenceName]
+	path := []byte(fmt.Sprintf("%s%s", sequencePath, sequenceName))
+	if !ok {
+		seq, err := store.Get(path)
+		if err != nil {
+			return nil, err
+		}
+		if len(seq) == 0 {
+			sequenceCache = &Sequence{
+				CurrentValue:       0,
+				LastPartitionIndex: 0,
+				MaxPartitionIndex:  SequencePartitions - 1,
+				Partitions:         SequencePartitions,
+			}
+		} else {
+			err = proto.Unmarshal(seq, sequenceCache)
+			if err != nil {
+				return nil, err
+			}
+		}
+		store.sequenceCache[sequenceName] = sequenceCache
+	}
+	if sequenceCache.LastPartitionIndex >= sequenceCache.MaxPartitionIndex {
+		sequenceCache.CurrentValue += SequenceRangeSize
+		sequenceCache.LastPartitionIndex = 0
+		sequenceCache.MaxPartitionIndex = SequencePartitions - 1
+	}
+	index := sequenceCache.LastPartitionIndex
+	sequenceCache.LastPartitionIndex++
+	b, err := proto.Marshal(sequenceCache)
+	if err != nil {
+		return nil, err
+	}
+	err = store.Set(path, b)
+	if err != nil {
+		return nil, err
+	}
+	return &SequenceChunkResponse{
+		Start:  sequenceCache.CurrentValue,
+		End:    sequenceCache.CurrentValue + SequenceRangeSize,
+		Offset: index,
+		Count:  sequenceCache.MaxPartitionIndex,
+	}, nil
 }
 
-// func (store *Store) getNextNodeID() (uint64, error) {
-// 	if store.raft != nil && store.raft.State() != raft.Leader {
-// 		// Send request to leader.
-// 	}
-// }
-//
-// func (store *Store) CreateNewSequence(name *string) (*uint64, error) {
-//
-// }
-
 type SequenceChunk struct {
-	current *SequenceChunkResponse
-	next    *SequenceChunkResponse
-	index   uint64
-	sync    *sync.Mutex
+	Store
+	current      *SequenceChunkResponse
+	next         *SequenceChunkResponse
+	index        uint64
+	sync         *sync.Mutex
+	sequenceName string
 }
 
 func (store *Store) NextSequenceValueById(sequenceName string) (*uint64, error) {
 	store.chunkMapMutex.Lock()
 	defer store.chunkMapMutex.Unlock()
-
-	// Reset:
-	// 	if sequence, ok := store.sequenceChunks[sequenceName]; !ok {
-	// 		if store.raft != nil && store.raft.State() != raft.Leader {
-	// 			// Send request to leader.
-	// 			if chunk, err := store.sequenceClient.GetSequenceChunk(context.Background(), &SequenceChunkRequest{SequenceName:sequenceName}); err != nil {
-	// 				return nil, err
-	// 			} else {
-	// 				store.sequenceChunks[sequenceName] = &SequenceChunk{
-	// 					current:chunk,
-	// 					next:nil,
-	// 					index:1,
-	// 					sync:new(sync.Mutex),
-	// 				}
-	// 				goto Reset
-	// 			}
-	// 		} else {
-	//
-	// 		}
-	// 	} else {
-	// 		return sequence.Next()
-	// 	}
-	return nil, nil
+	chunk, ok := store.sequenceChunks[sequenceName]
+	if !ok {
+		chunk = &SequenceChunk{
+			current:      nil,
+			next:         nil,
+			index:        1,
+			sequenceName: sequenceName,
+			sync:         new(sync.Mutex),
+			Store:		  *store,
+		}
+		store.sequenceChunks[sequenceName] = chunk
+	}
+	return chunk.Next()
 }
 
 func (sequence *SequenceChunk) Next() (*uint64, error) {
 	sequence.sync.Lock()
 	defer sequence.sync.Unlock()
 	if sequence.current == nil {
-		return nil, errors.New("current sequence is nil")
+		chunk, err := sequence.Store.getSequenceChunk(sequence.sequenceName)
+		if err != nil {
+			return nil, err
+		}
+		sequence.current = chunk
+		sequence.next = nil
+		sequence.index = 1
 	}
 NewId:
 	nextId := sequence.current.Start + sequence.current.Offset + (sequence.current.Count * sequence.index) - (sequence.current.Count - 1)
 	if nextId > sequence.current.End {
+		golog.Infof("moving next chunk into current sequence [%s]", sequence.sequenceName)
 		if sequence.next != nil {
 			sequence.current = sequence.next
-			sequence.next = nil
-			sequence.index = 1
-			goto NewId
 		} else {
-			return nil, errors.New("reached end of available sequence ranges")
+			chunk, err := sequence.Store.getSequenceChunk(sequence.sequenceName)
+			if err != nil {
+				return nil, err
+			}
+			sequence.current = chunk
 		}
+		sequence.next = nil
+		sequence.index = 1
+		goto NewId
+	}
+	if sequence.next == nil && float64(sequence.index*sequence.current.Count)/float64(sequence.current.End-sequence.current.Start) > (float64(SequencePreretrieve)/100) {
+		golog.Infof("requesting next chunk in sequence [%s] preemptive", sequence.sequenceName)
+		chunk, err := sequence.Store.getSequenceChunk(sequence.sequenceName)
+		if err != nil {
+			return nil, err
+		}
+		sequence.next = chunk
 	}
 	sequence.index++
 	return &nextId, nil

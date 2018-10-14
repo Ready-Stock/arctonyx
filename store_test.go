@@ -5,12 +5,13 @@ import (
 	"github.com/kataras/golog"
 	"io/ioutil"
 	"os"
+	"sort"
 	"testing"
 	"time"
 )
 
 func TestMain(m *testing.M) {
-	golog.SetLevel("debug")
+	golog.SetLevel("info")
 	code := m.Run()
 	os.Exit(code)
 }
@@ -154,4 +155,36 @@ func TestGetPrefix(t *testing.T) {
 	for _, kv := range val {
 		golog.Debugf("Key: %s Value: %s", string(kv.Key), string(kv.Value))
 	}
+}
+
+func TestSequence(t *testing.T) {
+	tmpDir, _ := ioutil.TempDir("", "store_test")
+	defer os.RemoveAll(tmpDir)
+	store1, err := raft_badger.CreateStore(tmpDir, "127.0.0.1:0", "", "")
+	if err != nil {
+		t.Error(err)
+		t.Fail()
+		return
+	}
+	// Simple way to ensure there is a leader.
+	time.Sleep(5 * time.Second)
+	numberOfIds := 10000
+	Ids := make([]int, 0)
+	for i := 0; i < numberOfIds; i++ {
+		id, err := store1.NextSequenceValueById("public.users.user_id")
+		if err != nil {
+			t.Error(err)
+			t.Fail()
+			return
+		}
+		Ids = append(Ids, int(*id))
+		golog.Infof("New user_id: %d", *id)
+	}
+	sort.Ints(Ids)
+	if len(Ids) != numberOfIds {
+		t.Error("number of ids do not match")
+		t.Fail()
+		return
+	}
+
 }
