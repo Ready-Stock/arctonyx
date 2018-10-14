@@ -11,7 +11,7 @@ import (
 )
 
 func TestMain(m *testing.M) {
-	golog.SetLevel("info")
+	golog.SetLevel("debug")
 	code := m.Run()
 	os.Exit(code)
 }
