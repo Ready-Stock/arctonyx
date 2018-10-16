@@ -78,21 +78,38 @@ func CreateStore(directory string, listen string, chatterListen string, joinAddr
 	log := logStore(store)
 
 	nodeId := uint64(0)
+
+	clusterExists := false
+
+	if nodeIdBytes, _ := store.Get(serverIdPath); len(nodeIdBytes) > 0 {
+		clusterExists = true
+		nodeId = bytesToUint64(nodeIdBytes)
+	}
+
 	if joinAddr != "" {
 		conn, err := grpc.Dial(joinAddr, grpc.WithInsecure())
 		if err != nil {
 			return nil, err
 		}
 		tempClient := &clusterServiceClient{cc: conn}
-		response, err := tempClient.GetNodeID(context.Background(), &GetNodeIdRequest{})
-		if err != nil {
-			return nil, err
+
+		if !clusterExists {
+			response, err := tempClient.GetNodeID(context.Background(), &GetNodeIdRequest{})
+			if err != nil {
+				return nil, err
+			}
+			nodeId = response.NodeId
+			stable.Set(serverIdPath, uint64ToBytes(nodeId))
 		}
-		nodeId = response.NodeId
+
 		defer func() {
 			golog.Debugf("node %d joining cluster!", nodeId)
 			tempClient.Join(context.Background(), &JoinRequest{RaftAddress: listen, ChatterAddress: chatterListen, Id: nodeId})
 		}()
+	} else {
+		if !clusterExists {
+			stable.Set(serverIdPath, uint64ToBytes(nodeId))
+		}
 	}
 
 	config.LocalID = raft.ServerID(nodeId)
@@ -102,12 +119,16 @@ func CreateStore(directory string, listen string, chatterListen string, joinAddr
 		return nil, fmt.Errorf("file snapshot store: %s", err)
 	}
 
+	if clusterExists {
+		config.StartAsLeader = true
+	}
+
 	ra, err := raft.NewRaft(config, (*fsm)(&store), &log, &stable, snapshots, transport)
 	if err != nil {
 		return nil, fmt.Errorf("new raft: %s", err)
 	}
 	store.raft = ra
-	if joinAddr == "" {
+	if joinAddr == "" && nodeId == 0 && !clusterExists {
 		configuration := raft.Configuration{
 			Servers: []raft.Server{
 				{

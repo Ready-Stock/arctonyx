@@ -257,3 +257,49 @@ func TestSequenceMulti(t *testing.T) {
 		return
 	}
 }
+
+func TestCreateStoreWithClose(t *testing.T) {
+	tmpDir, _ := ioutil.TempDir("", "store_test")
+	defer os.RemoveAll(tmpDir)
+	store1, err := raft_badger.CreateStore(tmpDir, "127.0.0.1:0", "", "")
+	if err != nil {
+		t.Error(err)
+		t.Fail()
+		return
+	}
+	// Simple way to ensure there is a leader.
+	time.Sleep(5 * time.Second)
+	err = store1.Set([]byte("test"), []byte("value"))
+	if err != nil {
+		t.Error(err)
+		t.Fail()
+		return
+	}
+
+	val, err := store1.Get([]byte("test"))
+	if err != nil {
+		t.Error(err)
+		t.Fail()
+		return
+	}
+
+	if string(val) != "value" {
+		t.Error("value did not match")
+		t.Fail()
+		return
+	}
+
+	golog.Warnf("shutting down lone node and restarting it")
+	store1.Close()
+	time.Sleep(5 * time.Second)
+	store1, err = raft_badger.CreateStore(tmpDir, "127.0.0.1:0", "", "")
+	defer store1.Close()
+	// Simple way to ensure there is a leader.
+	time.Sleep(5 * time.Second)
+	val, err = store1.Get([]byte("test"))
+	if err != nil {
+		t.Error(err)
+		t.Fail()
+		return
+	}
+}

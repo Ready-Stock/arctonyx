@@ -38,7 +38,7 @@ func (server *clusterServer) Join(ctx context.Context, join *JoinRequest) (*Join
 }
 
 func (server *clusterServer) GetNodeID(ctx context.Context, join *GetNodeIdRequest) (*GetNodeIdResponse, error) {
-	nodeId, err := server.NextSequenceValueById("/_node_ids_/")
+	nodeId, err := server.NextSequenceValueById("_node_ids_")
 	if err != nil {
 		return nil, err
 	}
