@@ -1,4 +1,4 @@
-package raft_badger
+package arctonyx
 
 var (
 	serverIdPath = []byte("/_server_id_/")

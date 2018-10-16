@@ -1,6 +1,6 @@
 syntax = "proto3";
 
-package raft_badger;
+package arctonyx;
 
 message Snapshot {
     repeated Tuple tuples = 1;

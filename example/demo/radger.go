@@ -1,7 +1,7 @@
 package main
 
 import (
-	"github.com/Ready-Stock/raft-badger"
+	"github.com/Ready-Stock/arctonyx"
 	"github.com/kataras/iris"
 	"github.com/satori/go.uuid"
 	"io/ioutil"
@@ -20,7 +20,7 @@ func main() {
 	}
 	tmpDir, _ := ioutil.TempDir("", randomName.String())
 	defer os.RemoveAll(tmpDir)
-	store, err := raft_badger.CreateStore(tmpDir, ":6500", ":6501", "")
+	store, err := arctonyx.CreateStore(tmpDir, ":6500", ":6501", "")
 	if err != nil {
 		panic(err)
 	}

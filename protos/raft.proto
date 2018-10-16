@@ -1,6 +1,6 @@
 syntax = "proto3";
 
-package raft_badger;
+package arctonyx;
 
 service ClusterService {
     rpc SendCommand (Command) returns (CommandResponse) {}

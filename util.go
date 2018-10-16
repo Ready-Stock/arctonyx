@@ -1,4 +1,4 @@
-package raft_badger
+package arctonyx
 
 func uint64ToBytes(v uint64) []byte {
 	b := make([]byte, 8)

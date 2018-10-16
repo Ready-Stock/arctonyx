@@ -1,7 +1,7 @@
-package raft_badger_test
+package arctonyx_test
 
 import (
-	"github.com/Ready-Stock/raft-badger"
+	"github.com/Ready-Stock/arctonyx"
 	"github.com/ahmetb/go-linq"
 	"github.com/kataras/golog"
 	"io/ioutil"
@@ -20,7 +20,7 @@ func TestMain(m *testing.M) {
 func TestCreateStore(t *testing.T) {
 	tmpDir, _ := ioutil.TempDir("", "store_test")
 	defer os.RemoveAll(tmpDir)
-	store1, err := raft_badger.CreateStore(tmpDir, "127.0.0.1:0", "", "")
+	store1, err := arctonyx.CreateStore(tmpDir, "127.0.0.1:0", "", "")
 	if err != nil {
 		t.Error(err)
 		t.Fail()
@@ -56,7 +56,7 @@ func TestCreateStoreMultipleServers(t *testing.T) {
 
 	tmpDir2, _ := ioutil.TempDir("", "store_test2")
 	defer os.RemoveAll(tmpDir2)
-	store1, err := raft_badger.CreateStore(tmpDir1, ":6543", ":6500", "")
+	store1, err := arctonyx.CreateStore(tmpDir1, ":6543", ":6500", "")
 	if err != nil {
 		t.Error(err)
 		t.Fail()
@@ -66,7 +66,7 @@ func TestCreateStoreMultipleServers(t *testing.T) {
 	// Simple way to ensure there is a leader.
 	time.Sleep(5 * time.Second)
 
-	store2, err := raft_badger.CreateStore(tmpDir2, ":6544",":6501", ":6500")
+	store2, err := arctonyx.CreateStore(tmpDir2, ":6544",":6501", ":6500")
 	if err != nil {
 		t.Error(err)
 		t.Fail()
@@ -129,7 +129,7 @@ func TestCreateStoreMultipleServers(t *testing.T) {
 func TestGetPrefix(t *testing.T) {
 	tmpDir, _ := ioutil.TempDir("", "store_test")
 	defer os.RemoveAll(tmpDir)
-	store1, err := raft_badger.CreateStore(tmpDir, "127.0.0.1:0", "", "")
+	store1, err := arctonyx.CreateStore(tmpDir, "127.0.0.1:0", "", "")
 	if err != nil {
 		t.Error(err)
 		t.Fail()
@@ -164,7 +164,7 @@ func TestGetPrefix(t *testing.T) {
 func TestSequence(t *testing.T) {
 	tmpDir, _ := ioutil.TempDir("", "store_test")
 	defer os.RemoveAll(tmpDir)
-	store1, err := raft_badger.CreateStore(tmpDir, "127.0.0.1:0", "", "")
+	store1, err := arctonyx.CreateStore(tmpDir, "127.0.0.1:0", "", "")
 	if err != nil {
 		t.Error(err)
 		t.Fail()
@@ -199,7 +199,7 @@ func TestSequenceMulti(t *testing.T) {
 	defer os.RemoveAll(tmpDir)
 	tmpDir2, _ := ioutil.TempDir("", "store_test2")
 	defer os.RemoveAll(tmpDir2)
-	store1, err := raft_badger.CreateStore(tmpDir, "127.0.0.1:0", ":6502", "")
+	store1, err := arctonyx.CreateStore(tmpDir, "127.0.0.1:0", ":6502", "")
 	if err != nil {
 		t.Error(err)
 		t.Fail()
@@ -209,7 +209,7 @@ func TestSequenceMulti(t *testing.T) {
 	// Simple way to ensure there is a leader.
 	time.Sleep(5 * time.Second)
 
-	store2, err := raft_badger.CreateStore(tmpDir2, ":6546",":6501", ":6502")
+	store2, err := arctonyx.CreateStore(tmpDir2, ":6546",":6501", ":6502")
 	if err != nil {
 		t.Error(err)
 		t.Fail()
@@ -261,7 +261,7 @@ func TestSequenceMulti(t *testing.T) {
 func TestCreateStoreWithClose(t *testing.T) {
 	tmpDir, _ := ioutil.TempDir("", "store_test")
 	defer os.RemoveAll(tmpDir)
-	store1, err := raft_badger.CreateStore(tmpDir, "127.0.0.1:0", "", "")
+	store1, err := arctonyx.CreateStore(tmpDir, "127.0.0.1:0", "", "")
 	if err != nil {
 		t.Error(err)
 		t.Fail()
@@ -293,7 +293,7 @@ func TestCreateStoreWithClose(t *testing.T) {
 	store1.Close()
 	store1 = nil
 	time.Sleep(5 * time.Second)
-	store1, err = raft_badger.CreateStore(tmpDir, "127.0.0.1:0", "", "")
+	store1, err = arctonyx.CreateStore(tmpDir, "127.0.0.1:0", "", "")
 	defer store1.Close()
 	// Simple way to ensure there is a leader.
 	time.Sleep(5 * time.Second)

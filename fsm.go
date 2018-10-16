@@ -1,4 +1,4 @@
-package raft_badger
+package arctonyx
 
 import (
 	"bytes"

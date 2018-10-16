@@ -1,5 +1,5 @@
-# raft-badger
-[![Build Status](https://travis-ci.com/Ready-Stock/raft-badger.svg?branch=master)](https://travis-ci.com/Ready-Stock/raft-badger)
+# arctonyx
+[![Build Status](https://travis-ci.com/Ready-Stock/arctonyx.svg?branch=master)](https://travis-ci.com/Ready-Stock/arctonyx)
 
 An embeddable raft implementation of the badger key-value store.
 

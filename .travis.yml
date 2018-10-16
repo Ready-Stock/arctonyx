@@ -18,7 +18,7 @@ install:
 - go get -u github.com/golang/protobuf/protoc-gen-go
 - go get -d github.com/ahmetb/go-linq
 - go get -d github.com/satori/go.uuid
-- go get -d github.com/Ready-Stock/raft-badger
+- go get -d github.com/Ready-Stock/arctonyx
 - export PATH=$HOME/protoc/bin:$GOPATH/bin:$PATH
 - make protos
 - pwd
