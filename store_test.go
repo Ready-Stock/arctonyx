@@ -12,7 +12,7 @@ import (
 )
 
 func TestMain(m *testing.M) {
-	golog.SetLevel("info")
+	golog.SetLevel("debug")
 	code := m.Run()
 	os.Exit(code)
 }
@@ -66,14 +66,14 @@ func TestCreateStoreMultipleServers(t *testing.T) {
 	// Simple way to ensure there is a leader.
 	time.Sleep(5 * time.Second)
 
-	store2, err := raft_badger.CreateStore(tmpDir2, ":6544",":6501", ":6543")
+	store2, err := raft_badger.CreateStore(tmpDir2, ":6544",":6501", ":6500")
 	if err != nil {
 		t.Error(err)
 		t.Fail()
 		return
 	}
 	defer store2.Close()
-	store1.Join(store2.NodeID(), ":6544", ":6501")
+	//store1.Join(store2.NodeID(), ":6544", ":6501")
 	time.Sleep(5 * time.Second)
 	err = store1.Set([]byte("test"), []byte("value"))
 	if err != nil {
@@ -209,14 +209,14 @@ func TestSequenceMulti(t *testing.T) {
 	// Simple way to ensure there is a leader.
 	time.Sleep(5 * time.Second)
 
-	store2, err := raft_badger.CreateStore(tmpDir2, ":6546",":6501", ":6543")
+	store2, err := raft_badger.CreateStore(tmpDir2, ":6546",":6501", ":6502")
 	if err != nil {
 		t.Error(err)
 		t.Fail()
 		return
 	}
 	defer store2.Close()
-	store1.Join(store2.NodeID(), ":6546", ":6501")
+	//store1.Join(store2.NodeID(), ":6546", ":6501")
 	time.Sleep(5 * time.Second)
 
 	numberOfIds := 1000000

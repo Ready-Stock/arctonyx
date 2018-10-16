@@ -20,7 +20,7 @@ func (f *fsm) Apply(l *raft.Log) interface{} {
 		golog.Fatalf("failed to unmarshal command: %s. %s", err.Error(), hex.Dump(l.Data))
 		return err
 	}
-	golog.Debugf("[%s] Delay [%s]\n%s", f.nodeId, time.Since(time.Unix(0, int64(c.Timestamp))), hex.Dump(l.Data))
+	golog.Debugf("[%d] Delay [%s]\n%s", f.nodeId, time.Since(time.Unix(0, int64(c.Timestamp))), hex.Dump(l.Data))
 	switch c.Operation {
 	case Operation_SET:
 		return f.applySet(c.Key, c.Value)
@@ -47,14 +47,14 @@ func (f *fsm) Snapshot() (raft.FSMSnapshot, error) {
 
 func (f *fsm) applySet(key, value []byte) error {
 	return f.badger.Update(func(txn *badger.Txn) error {
-		golog.Debugf("[%s] Setting Key: %s To Value: %s", f.nodeId, string(key), string(value))
+		golog.Debugf("[%d] Setting Key: %s To Value: %s", f.nodeId, string(key), string(value))
 		return txn.Set(key, value)
 	})
 }
 
 func (f *fsm) applyDelete(key []byte) error {
 	return f.badger.Update(func(txn *badger.Txn) error {
-		golog.Debugf("[%s] Deleting Key: %s", f.nodeId, string(key))
+		golog.Debugf("[%d] Deleting Key: %s", f.nodeId, string(key))
 		return txn.Delete(key)
 	})
 }

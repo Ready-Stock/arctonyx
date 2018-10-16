@@ -10,9 +10,9 @@ import (
 
 type clusterClient struct {
 	Store
-	conn *grpc.ClientConn
-	sync *sync.Mutex
-	addr raft.ServerAddress
+	conn    *grpc.ClientConn
+	sync    *sync.Mutex
+	addr    raft.ServerAddress
 	cluster *clusterServiceClient
 }
 
@@ -55,7 +55,7 @@ func (client *clusterClient) getNextChunkInSequence(sequenceName string) (*Seque
 	if err := client.validateConnection(client.Store.raft.Leader()); err != nil {
 		return nil, err
 	}
-	if result, err := client.cluster.GetSequenceChunk(context.Background(), &SequenceChunkRequest{SequenceName:sequenceName}); err != nil {
+	if result, err := client.cluster.GetSequenceChunk(context.Background(), &SequenceChunkRequest{SequenceName: sequenceName}); err != nil {
 		return nil, err
 	} else {
 		return result, nil
@@ -63,5 +63,5 @@ func (client *clusterClient) getNextChunkInSequence(sequenceName string) (*Seque
 }
 
 func (client *clusterClient) joinCluster(addr string) (*JoinResponse, error) {
-	return nil, nil
+	return client.cluster.Join(context.Background(), &JoinRequest{RaftAddress: client.listen, ChatterAddress: client.chatterListen, Id: client.nodeId})
 }

@@ -1,13 +1,13 @@
 package raft_badger
 
 import (
+	"context"
 	"fmt"
 	"github.com/Ready-Stock/badger"
 	"github.com/golang/protobuf/proto"
 	"github.com/hashicorp/raft"
 	"github.com/kataras/go-errors"
 	"github.com/kataras/golog"
-	uuid2 "github.com/satori/go.uuid"
 	"google.golang.org/grpc"
 	"net"
 	"os"
@@ -35,8 +35,9 @@ type Store struct {
 	sequenceCache     map[string]*Sequence
 	clusterClient     *clusterClient
 	server            *grpc.Server
-	nodeId            string
-
+	nodeId            uint64
+	listen            string
+	chatterListen     string
 }
 
 // Creates and possibly joins a cluster.
@@ -49,6 +50,8 @@ func CreateStore(directory string, listen string, chatterListen string, joinAddr
 		sequenceCacheSync: new(sync.Mutex),
 		sequenceCache:     map[string]*Sequence{},
 		sequenceChunks:    map[string]*SequenceChunk{},
+		listen:            listen,
+		chatterListen:     chatterListen,
 	}
 
 	if listen == "" {
@@ -59,12 +62,10 @@ func CreateStore(directory string, listen string, chatterListen string, joinAddr
 	if err != nil {
 		return nil, err
 	}
-
 	transport, err := raft.NewTCPTransport(listen, addr, 3, 10*time.Second, os.Stderr)
 	if err != nil {
 		return nil, err
 	}
-
 	opts := badger.DefaultOptions
 	opts.Dir = directory
 	opts.ValueDir = directory
@@ -73,33 +74,27 @@ func CreateStore(directory string, listen string, chatterListen string, joinAddr
 		return nil, err
 	}
 	store.badger = db
-
 	stable := stableStore(store)
 	log := logStore(store)
-	nodeId := ""
-	if id, err := stable.Get(serverIdPath); err != nil {
-		if err.Error() == "Key not found" {
-			if uuid, err := uuid2.NewV4(); err != nil {
-				return nil, err
-			} else {
-				stable.Set(serverIdPath, []byte(uuid.String()))
-				nodeId = string(uuid.String())
-			}
-		} else {
+
+	nodeId := uint64(0)
+	if joinAddr != "" {
+		conn, err := grpc.Dial(joinAddr, grpc.WithInsecure())
+		if err != nil {
 			return nil, err
 		}
-	} else {
-		if string(id) == "" {
-			if uuid, err := uuid2.NewV4(); err != nil {
-				return nil, err
-			} else {
-				stable.Set(serverIdPath, []byte(uuid.String()))
-				nodeId = string(uuid.String())
-			}
-		} else {
-			nodeId = string(id)
+		tempClient := &clusterServiceClient{cc: conn}
+		response, err := tempClient.GetNodeID(context.Background(), &GetNodeIdRequest{})
+		if err != nil {
+			return nil, err
 		}
+		nodeId = response.NodeId
+		defer func() {
+			golog.Debugf("node %d joining cluster!", nodeId)
+			tempClient.Join(context.Background(), &JoinRequest{RaftAddress: listen, ChatterAddress: chatterListen, Id: nodeId})
+		}()
 	}
+
 	config.LocalID = raft.ServerID(nodeId)
 	store.nodeId = nodeId
 	snapshots, err := raft.NewFileSnapshotStore(directory, retainSnapshotCount, os.Stderr)
@@ -137,12 +132,11 @@ func CreateStore(directory string, listen string, chatterListen string, joinAddr
 	go grpcServer.Serve(lis)
 	store.server = grpcServer
 	store.clusterClient = &clusterClient{Store: store, sync: new(sync.Mutex)}
-
 	return &store, nil
 }
 
-func (store *Store) Join(nodeId, addr, chatter string) error {
-	golog.Debugf("received join request from remote node [%s] at [%s]", nodeId, addr)
+func (store *Store) join(nodeId uint64, addr, chatter string) error {
+	golog.Debugf("received join request from remote node [%d] at [%s]", nodeId, addr)
 
 	configFuture := store.raft.GetConfiguration()
 	if err := configFuture.Error(); err != nil {
@@ -156,13 +150,13 @@ func (store *Store) Join(nodeId, addr, chatter string) error {
 			// However if *both* the ID and the address are the same, then nothing -- not even
 			// a join operation -- is needed.
 			if srv.Address == raft.ServerAddress(addr) && srv.ID == raft.ServerID(nodeId) {
-				golog.Errorf("node %s at %s already member of cluster, ignoring join request", nodeId, addr)
+				golog.Errorf("node %d at %s already member of cluster, ignoring join request", nodeId, addr)
 				return nil
 			}
 
 			future := store.raft.RemoveServer(srv.ID, 0, 0)
 			if err := future.Error(); err != nil {
-				return fmt.Errorf("error removing existing node %s at %s: %s", nodeId, addr, err)
+				return fmt.Errorf("error removing existing node %d at %s: %s", nodeId, addr, err)
 			}
 		}
 	}
@@ -171,11 +165,11 @@ func (store *Store) Join(nodeId, addr, chatter string) error {
 		return f.Error()
 	}
 	store.setPeer(nodeId, addr, chatter)
-	golog.Infof("node %s at %s joined successfully", nodeId, addr)
+	golog.Infof("node %d at %s joined successfully", nodeId, addr)
 	return nil
 }
 
-func (store *Store) setPeer(nodeId, addr, chatter string) error {
+func (store *Store) setPeer(nodeId uint64, addr, chatter string) error {
 	peer := &Peer{
 		NodeId:      nodeId,
 		RaftAddr:    addr,
@@ -279,7 +273,7 @@ func (store *Store) Delete(key []byte) (err error) {
 	return r.Error()
 }
 
-func (store *Store) NodeID() string {
+func (store *Store) NodeID() uint64 {
 	return store.nodeId
 }
 

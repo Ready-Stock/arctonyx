@@ -4,8 +4,17 @@ package raft_badger;
 
 service ClusterService {
     rpc SendCommand (Command) returns (CommandResponse) {}
+    rpc GetNodeID (GetNodeIdRequest) returns (GetNodeIdResponse) {}
     rpc Join (JoinRequest) returns (JoinResponse) {}
     rpc GetSequenceChunk (sequenceChunkRequest) returns (sequenceChunkResponse) {}
+}
+
+message GetNodeIdRequest {
+
+}
+
+message GetNodeIdResponse {
+    uint64 node_id = 1;
 }
 
 enum Operation {
@@ -30,8 +39,8 @@ message CommandResponse {
 
 message JoinRequest {
     string raft_address = 1;
-    string server_address = 2;
-    string id = 3;
+    string chatter_address = 2;
+    uint64 id = 3;
 }
 
 message JoinResponse {
@@ -40,7 +49,7 @@ message JoinResponse {
 }
 
 message Peer {
-    string node_id = 1;
+    uint64 node_id = 1;
     string raft_addr = 2;
     string chatter_addr = 3;
 }
