@@ -109,6 +109,7 @@ func CreateStore(directory string, listen string, chatterListen string, joinAddr
 	} else {
 		if !clusterExists {
 			stable.Set(serverIdPath, uint64ToBytes(nodeId))
+			config.StartAsLeader = true
 		}
 	}
 
@@ -260,6 +261,7 @@ latencyReset:
 }
 
 func (store *Store) Set(key, value []byte) (err error) {
+	golog.Debugf("Setting key: %s to %s",string(key), string(value))
 	c := &Command{Operation: Operation_SET, Key: key, Value: value, Timestamp: uint64(time.Now().UnixNano())}
 	if store.raft.State() != raft.Leader {
 		if store.raft.Leader() == "" {
@@ -270,11 +272,13 @@ func (store *Store) Set(key, value []byte) (err error) {
 		}
 		return nil
 	}
+	golog.Debugf("setting value locally")
 	b, err := proto.Marshal(c)
 	if err != nil {
 		return err
 	}
 	r := store.raft.Apply(b, raftTimeout)
+	golog.Debugf("done setting value locally")
 	return r.Error()
 }
 

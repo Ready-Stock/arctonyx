@@ -12,7 +12,7 @@ import (
 )
 
 func TestMain(m *testing.M) {
-	golog.SetLevel("info")
+	golog.SetLevel("debug")
 	code := m.Run()
 	os.Exit(code)
 }
@@ -291,12 +291,20 @@ func TestCreateStoreWithClose(t *testing.T) {
 
 	golog.Warnf("shutting down lone node and restarting it")
 	store1.Close()
+	store1 = nil
 	time.Sleep(5 * time.Second)
 	store1, err = raft_badger.CreateStore(tmpDir, "127.0.0.1:0", "", "")
 	defer store1.Close()
 	// Simple way to ensure there is a leader.
 	time.Sleep(5 * time.Second)
-	val, err = store1.Get([]byte("test"))
+	err = store1.Set([]byte("test1"), []byte("value"))
+	if err != nil {
+		t.Error(err)
+		t.Fail()
+		return
+	}
+
+	val, err = store1.Get([]byte("test1"))
 	if err != nil {
 		t.Error(err)
 		t.Fail()
