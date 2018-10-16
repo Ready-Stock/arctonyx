@@ -316,6 +316,10 @@ func (store *Store) IsLeader() bool {
 }
 
 func (store *Store) Close() {
+	snap := store.raft.Snapshot()
+	if snap.Error() != nil {
+		golog.Error(snap.Error())
+	}
 	store.raft.Shutdown()
 	store.badger.Close()
 	store.server.Stop()
