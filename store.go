@@ -109,7 +109,6 @@ func CreateStore(directory string, listen string, chatterListen string, joinAddr
 	} else {
 		if !clusterExists {
 			stable.Set(serverIdPath, uint64ToBytes(nodeId))
-			config.StartAsLeader = true
 		}
 	}
 
@@ -121,9 +120,19 @@ func CreateStore(directory string, listen string, chatterListen string, joinAddr
 	}
 
 	if clusterExists {
-		config.StartAsLeader = true
+		configuration := raft.Configuration{
+			Servers: []raft.Server{
+				{
+					ID:      config.LocalID,
+					Address: transport.LocalAddr(),
+				},
+			},
+		}
+		err := raft.RecoverCluster(config, (*fsm)(&store), &log, &stable, snapshots, transport, configuration)
+		if err != nil {
+			return nil, fmt.Errorf("recover raft: %s", err)
+		}
 	}
-
 	ra, err := raft.NewRaft(config, (*fsm)(&store), &log, &stable, snapshots, transport)
 	if err != nil {
 		return nil, fmt.Errorf("new raft: %s", err)
