@@ -34,8 +34,9 @@ type Store struct {
 	sequenceChunks    map[string]*SequenceChunk
 	sequenceCache     map[string]*Sequence
 	clusterClient     *clusterClient
-	server            *clusterServer
+	server            *grpc.Server
 	nodeId            string
+
 }
 
 // Creates and possibly joins a cluster.
@@ -134,7 +135,7 @@ func CreateStore(directory string, listen string, chatterListen string, joinAddr
 	grpcServer := grpc.NewServer()
 	RegisterClusterServiceServer(grpcServer, &clusterServer{store})
 	go grpcServer.Serve(lis)
-
+	store.server = grpcServer
 	store.clusterClient = &clusterClient{Store: store, sync: new(sync.Mutex)}
 
 	return &store, nil
@@ -285,4 +286,5 @@ func (store *Store) NodeID() string {
 func (store *Store) Close() {
 	store.raft.Shutdown()
 	store.badger.Close()
+	store.server.Stop()
 }

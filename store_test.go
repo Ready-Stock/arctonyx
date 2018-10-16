@@ -26,6 +26,7 @@ func TestCreateStore(t *testing.T) {
 		t.Fail()
 		return
 	}
+	defer store1.Close()
 	// Simple way to ensure there is a leader.
 	time.Sleep(5 * time.Second)
 	err = store1.Set([]byte("test"), []byte("value"))
@@ -61,6 +62,7 @@ func TestCreateStoreMultipleServers(t *testing.T) {
 		t.Fail()
 		return
 	}
+	defer store1.Close()
 	// Simple way to ensure there is a leader.
 	time.Sleep(5 * time.Second)
 
@@ -70,7 +72,7 @@ func TestCreateStoreMultipleServers(t *testing.T) {
 		t.Fail()
 		return
 	}
-
+	defer store2.Close()
 	store1.Join(store2.NodeID(), ":6544", ":6501")
 	time.Sleep(5 * time.Second)
 	err = store1.Set([]byte("test"), []byte("value"))
@@ -133,6 +135,7 @@ func TestGetPrefix(t *testing.T) {
 		t.Fail()
 		return
 	}
+	defer store1.Close()
 	// Simple way to ensure there is a leader.
 	time.Sleep(5 * time.Second)
 	err = store1.Set([]byte("/test"), []byte("value"))
@@ -167,6 +170,7 @@ func TestSequence(t *testing.T) {
 		t.Fail()
 		return
 	}
+	defer store1.Close()
 	// Simple way to ensure there is a leader.
 	time.Sleep(5 * time.Second)
 	numberOfIds := 10000
@@ -201,16 +205,18 @@ func TestSequenceMulti(t *testing.T) {
 		t.Fail()
 		return
 	}
+	defer store1.Close()
 	// Simple way to ensure there is a leader.
 	time.Sleep(5 * time.Second)
 
-	store2, err := raft_badger.CreateStore(tmpDir2, ":6544",":6501", ":6543")
+	store2, err := raft_badger.CreateStore(tmpDir2, ":6546",":6501", ":6543")
 	if err != nil {
 		t.Error(err)
 		t.Fail()
 		return
 	}
-	store1.Join(store2.NodeID(), ":6544", ":6501")
+	defer store2.Close()
+	store1.Join(store2.NodeID(), ":6546", ":6501")
 	time.Sleep(5 * time.Second)
 
 	numberOfIds := 1000000
