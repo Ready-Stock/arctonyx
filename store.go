@@ -283,6 +283,10 @@ func (store *Store) NodeID() string {
 	return store.nodeId
 }
 
+func (store *Store) IsLeader() bool {
+	return store.raft.State() == raft.Leader
+}
+
 func (store *Store) Close() {
 	store.raft.Shutdown()
 	store.badger.Close()
