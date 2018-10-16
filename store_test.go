@@ -12,7 +12,7 @@ import (
 )
 
 func TestMain(m *testing.M) {
-	golog.SetLevel("debug")
+	golog.SetLevel("info")
 	code := m.Run()
 	os.Exit(code)
 }
@@ -179,7 +179,7 @@ func TestSequence(t *testing.T) {
 			return
 		}
 		Ids = append(Ids, int(*id))
-		golog.Infof("New user_id: %d", *id)
+		//golog.Infof("New user_id: %d", *id)
 	}
 	sort.Ints(Ids)
 	if len(Ids) != numberOfIds {
@@ -225,7 +225,7 @@ func TestSequenceMulti(t *testing.T) {
 				return
 			}
 			Ids = append(Ids, int(*id))
-			golog.Infof("New user_id on node 2: %d", *id)
+			//golog.Infof("New user_id on node 2: %d", *id)
 		default:
 			id, err := store1.NextSequenceValueById("public.users.user_id")
 			if err != nil {
@@ -234,7 +234,7 @@ func TestSequenceMulti(t *testing.T) {
 				return
 			}
 			Ids = append(Ids, int(*id))
-			golog.Infof("New user_id on node 1: %d", *id)
+			//golog.Infof("New user_id on node 1: %d", *id)
 		}
 
 	}
