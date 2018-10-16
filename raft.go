@@ -25,8 +25,11 @@ func (client *clusterClient) validateConnection(leaderAddr raft.ServerAddress) e
 		if err != nil {
 			return err
 		}
-		client.conn.Close()
-		conn, err := grpc.Dial(newAddr)
+		if client.conn != nil {
+			client.conn.Close()
+		}
+
+		conn, err := grpc.Dial(newAddr, grpc.WithInsecure())
 		if err != nil {
 			return err
 		}

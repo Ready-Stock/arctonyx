@@ -2,6 +2,7 @@ package raft_badger_test
 
 import (
 	"github.com/Ready-Stock/raft-badger"
+	"github.com/ahmetb/go-linq"
 	"github.com/kataras/golog"
 	"io/ioutil"
 	"os"
@@ -187,4 +188,66 @@ func TestSequence(t *testing.T) {
 		return
 	}
 
+}
+
+func TestSequenceMulti(t *testing.T) {
+	tmpDir, _ := ioutil.TempDir("", "store_test")
+	defer os.RemoveAll(tmpDir)
+	tmpDir2, _ := ioutil.TempDir("", "store_test2")
+	defer os.RemoveAll(tmpDir2)
+	store1, err := raft_badger.CreateStore(tmpDir, "127.0.0.1:0", ":6502", "")
+	if err != nil {
+		t.Error(err)
+		t.Fail()
+		return
+	}
+	// Simple way to ensure there is a leader.
+	time.Sleep(5 * time.Second)
+
+	store2, err := raft_badger.CreateStore(tmpDir2, ":6544",":6501", ":6543")
+	if err != nil {
+		t.Error(err)
+		t.Fail()
+		return
+	}
+	store1.Join(store2.NodeID(), ":6544", ":6501")
+	time.Sleep(5 * time.Second)
+
+	numberOfIds := 1000000
+	Ids := make([]int, 0)
+	for i := 0; i < numberOfIds; i++ {
+		switch i % 2 {
+		case 0:
+			id, err := store2.NextSequenceValueById("public.users.user_id")
+			if err != nil {
+				panic(err)
+				t.Fail()
+				return
+			}
+			Ids = append(Ids, int(*id))
+			golog.Infof("New user_id on node 2: %d", *id)
+		default:
+			id, err := store1.NextSequenceValueById("public.users.user_id")
+			if err != nil {
+				panic(err)
+				t.Fail()
+				return
+			}
+			Ids = append(Ids, int(*id))
+			golog.Infof("New user_id on node 1: %d", *id)
+		}
+
+	}
+	sort.Ints(Ids)
+	if len(Ids) != numberOfIds {
+		t.Error("number of ids do not match")
+		t.Fail()
+		return
+	}
+	linq.From(Ids).Distinct().ToSlice(&Ids)
+	if len(Ids) != numberOfIds {
+		t.Error("distinct number of ids do not match")
+		t.Fail()
+		return
+	}
 }

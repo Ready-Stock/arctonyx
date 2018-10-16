@@ -124,6 +124,8 @@ func CreateStore(directory string, listen string, chatterListen string, joinAddr
 		if f.Error() != nil {
 			return nil, f.Error()
 		}
+		time.Sleep(5 * time.Second)
+		store.setPeer(nodeId, listen, chatterListen)
 	}
 	lis, err := net.Listen("tcp", chatterListen)
 	if err != nil {
