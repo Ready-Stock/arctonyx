@@ -35,6 +35,7 @@ func (store *Store) getSequenceChunk(sequenceName string) (*SequenceChunkRespons
 				Partitions:         SequencePartitions,
 			}
 		} else {
+			sequenceCache = &Sequence{}
 			err = proto.Unmarshal(seq, sequenceCache)
 			if err != nil {
 				return nil, err
