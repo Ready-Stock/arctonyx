@@ -12,7 +12,7 @@ import (
 )
 
 func TestMain(m *testing.M) {
-	golog.SetLevel("debug")
+	golog.SetLevel("info")
 	code := m.Run()
 	os.Exit(code)
 }
