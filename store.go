@@ -229,13 +229,13 @@ func (store *Store) GetPrefix(prefix []byte) (values []KeyValue, err error) {
 	err = store.badger.View(func(txn *badger.Txn) error {
 		it := txn.NewIterator(badger.DefaultIteratorOptions)
 		defer it.Close()
-		valueBytes := make([]byte, 0)
 		for it.Seek(prefix); it.ValidForPrefix(prefix); it.Next() {
 			item := it.Item()
-			if _, err := item.ValueCopy(valueBytes); err != nil {
+			if valueBytes, err := item.Value(); err != nil {
 				return err
+			} else {
+				values = append(values, KeyValue{Key: item.Key(), Value: valueBytes})
 			}
-			values = append(values, KeyValue{Key: item.Key(), Value: valueBytes})
 		}
 		return nil
 	})
@@ -270,7 +270,7 @@ latencyReset:
 }
 
 func (store *Store) Set(key, value []byte) (err error) {
-	golog.Debugf("Setting key: %s to %s",string(key), string(value))
+	golog.Debugf("Setting key: %s to %s", string(key), string(value))
 	c := &Command{Operation: Operation_SET, Key: key, Value: value, Timestamp: uint64(time.Now().UnixNano())}
 	if store.raft.State() != raft.Leader {
 		if store.raft.Leader() == "" {
