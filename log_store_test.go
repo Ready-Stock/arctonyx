@@ -3,7 +3,7 @@ package arctonyx
 import (
 	"encoding/hex"
 	"fmt"
-	"github.com/Ready-Stock/badger"
+	"github.com/dgraph-io/badger"
 	"github.com/satori/go.uuid"
 	"io/ioutil"
 	"os"
@@ -73,7 +73,7 @@ func TestLogStore_LastIndex(t *testing.T) {
 }
 
 func TestLogStore_GetKeyForIndex(t *testing.T) {
-	uints := []uint64{ 1, 2, 3, 15831904231, 35183541, 489156156156 }
+	uints := []uint64{1, 2, 3, 15831904231, 35183541, 489156156156}
 	for _, u := range uints {
 		key := getKeyForIndex(u)
 		index := getIndexForKey(key)

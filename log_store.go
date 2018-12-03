@@ -2,7 +2,7 @@ package arctonyx
 
 import (
 	"encoding/json"
-	"github.com/Ready-Stock/badger"
+	"github.com/dgraph-io/badger"
 	"github.com/hashicorp/raft"
 )
 
@@ -21,17 +21,17 @@ func (log *logStore) LastIndex() (uint64, error) {
 }
 
 func (log *logStore) GetLog(index uint64, raftLog *raft.Log) error {
-	return log.badger.View(func(txn *badger.Txn) error {
+	return log.badger.View(func(txn *badger.Txn) (err error) {
 		item, err := txn.Get(getKeyForIndex(index))
 		if err != nil {
 			return raft.ErrLogNotFound
 		}
-		value, err := item.Value()
+		value := make([]byte, 0)
+		value, err = item.ValueCopy(value)
 		if err != nil {
 			return err
 		}
-		err = json.Unmarshal(value, &raftLog)
-		if err != nil {
+		if err = json.Unmarshal(value, &raftLog); err != nil {
 			return err
 		}
 		return nil
@@ -62,7 +62,7 @@ func (log *logStore) StoreLogs(raftLogs []*raft.Log) error {
 func (log *logStore) DeleteRange(min, max uint64) error {
 	return log.badger.Update(func(txn *badger.Txn) error {
 		it := txn.NewIterator(badger.IteratorOptions{
-			PrefetchSize:100,
+			PrefetchSize: 100,
 		})
 		defer it.Close()
 		minKey := uint64ToBytes(min)

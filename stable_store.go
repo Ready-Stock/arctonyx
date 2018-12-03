@@ -1,7 +1,7 @@
 package arctonyx
 
 import (
-	"github.com/Ready-Stock/badger"
+	"github.com/dgraph-io/badger"
 	"github.com/kataras/golog"
 )
 
@@ -15,16 +15,13 @@ func (stable *stableStore) Set(key, val []byte) error {
 }
 
 func (stable *stableStore) Get(key []byte) (val []byte, err error) {
-	err = stable.badger.View(func(txn *badger.Txn) error {
+	err = stable.badger.View(func(txn *badger.Txn) (err error) {
 		if item, err := txn.Get(key); err != nil {
 			return err
 		} else {
-			if value, err := item.Value(); err != nil {
-				return err
-			} else {
-				val = value
-				return nil
-			}
+			val := make([]byte, 0)
+			val, err = item.ValueCopy(val)
+			return err
 		}
 	})
 	if err != nil && err.Error() == "Key not found" {
@@ -44,4 +41,3 @@ func (stable *stableStore) GetUint64(key []byte) (uint64, error) {
 		return bytesToUint64(val), nil
 	}
 }
-

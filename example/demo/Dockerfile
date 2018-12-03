@@ -8,7 +8,7 @@ WORKDIR /app
 COPY . /app
 
 # Install any needed packages specified in requirements.txt
-RUN go get -d github.com/Ready-Stock/arctonyx;
+RUN go get -d github.com/readystock/arctonyx;
 
 # Make port 80 available to the world outside this container
 EXPOSE 6500 6501

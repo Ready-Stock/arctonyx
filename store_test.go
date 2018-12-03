@@ -1,9 +1,9 @@
 package arctonyx_test
 
 import (
-	"github.com/Ready-Stock/arctonyx"
 	"github.com/ahmetb/go-linq"
 	"github.com/kataras/golog"
+	"github.com/readystock/arctonyx"
 	"io/ioutil"
 	"os"
 	"sort"
@@ -66,7 +66,7 @@ func TestCreateStoreMultipleServers(t *testing.T) {
 	// Simple way to ensure there is a leader.
 	time.Sleep(5 * time.Second)
 
-	store2, err := arctonyx.CreateStore(tmpDir2, ":6544",":6501", ":6500")
+	store2, err := arctonyx.CreateStore(tmpDir2, ":6544", ":6501", ":6500")
 	if err != nil {
 		t.Error(err)
 		t.Fail()
@@ -124,7 +124,6 @@ func TestCreateStoreMultipleServers(t *testing.T) {
 		return
 	}
 }
-
 
 func TestGetPrefix(t *testing.T) {
 	tmpDir, _ := ioutil.TempDir("", "store_test")
@@ -209,7 +208,7 @@ func TestSequenceMulti(t *testing.T) {
 	// Simple way to ensure there is a leader.
 	time.Sleep(5 * time.Second)
 
-	store2, err := arctonyx.CreateStore(tmpDir2, ":6546",":6501", ":6502")
+	store2, err := arctonyx.CreateStore(tmpDir2, ":6546", ":6501", ":6502")
 	if err != nil {
 		t.Error(err)
 		t.Fail()

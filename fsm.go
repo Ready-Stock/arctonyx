@@ -3,7 +3,7 @@ package arctonyx
 import (
 	"bytes"
 	"encoding/hex"
-	"github.com/Ready-Stock/badger"
+	"github.com/dgraph-io/badger"
 	"github.com/golang/protobuf/proto"
 	"github.com/hashicorp/raft"
 	"github.com/kataras/go-errors"
@@ -41,7 +41,7 @@ func (f *fsm) Snapshot() (raft.FSMSnapshot, error) {
 	w := &bytes.Buffer{}
 	f.badger.Backup(w, 0)
 	return &snapshot{
-		store:w.Bytes(),
+		store: w.Bytes(),
 	}, nil
 }
 
@@ -58,7 +58,3 @@ func (f *fsm) applyDelete(key []byte) error {
 		return txn.Delete(key)
 	})
 }
-
-
-
-

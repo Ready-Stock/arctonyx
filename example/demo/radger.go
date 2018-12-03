@@ -1,8 +1,8 @@
 package main
 
 import (
-	"github.com/Ready-Stock/arctonyx"
 	"github.com/kataras/iris"
+	"github.com/readystock/arctonyx"
 	"github.com/satori/go.uuid"
 	"io/ioutil"
 	"os"
@@ -11,7 +11,6 @@ import (
 type ValueStruct struct {
 	Value string
 }
-
 
 func main() {
 	randomName, err := uuid.NewV4()
@@ -33,7 +32,7 @@ func main() {
 			ctx.JSON(err.Error())
 		} else {
 			ctx.JSON(ValueStruct{
-				Value:string(val),
+				Value: string(val),
 			})
 		}
 	})

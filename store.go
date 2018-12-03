@@ -3,7 +3,7 @@ package arctonyx
 import (
 	"context"
 	"fmt"
-	"github.com/Ready-Stock/badger"
+	"github.com/dgraph-io/badger"
 	"github.com/golang/protobuf/proto"
 	"github.com/hashicorp/raft"
 	"github.com/kataras/go-errors"
@@ -231,7 +231,8 @@ func (store *Store) GetPrefix(prefix []byte) (values []KeyValue, err error) {
 		defer it.Close()
 		for it.Seek(prefix); it.ValidForPrefix(prefix); it.Next() {
 			item := it.Item()
-			if valueBytes, err := item.Value(); err != nil {
+			valueBytes := make([]byte, 0)
+			if valueBytes, err = item.ValueCopy(valueBytes); err != nil {
 				return err
 			} else {
 				values = append(values, KeyValue{Key: item.Key(), Value: valueBytes})
@@ -255,7 +256,7 @@ latencyReset:
 				return nil
 			}
 		}
-		value, err = item.Value()
+		value, err = item.ValueCopy(value)
 		return err
 	})
 	if resetCount < 10 {
