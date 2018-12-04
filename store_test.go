@@ -1,18 +1,21 @@
 package arctonyx_test
 
 import (
+	"fmt"
 	"github.com/ahmetb/go-linq"
 	"github.com/kataras/golog"
 	"github.com/readystock/arctonyx"
 	"io/ioutil"
 	"os"
+	"reflect"
 	"sort"
+	"sync"
 	"testing"
 	"time"
 )
 
 func TestMain(m *testing.M) {
-	golog.SetLevel("info")
+	golog.SetLevel("debug")
 	code := m.Run()
 	os.Exit(code)
 }
@@ -73,7 +76,7 @@ func TestCreateStoreMultipleServers(t *testing.T) {
 		return
 	}
 	defer store2.Close()
-	//store1.Join(store2.NodeID(), ":6544", ":6501")
+	// store1.Join(store2.NodeID(), ":6544", ":6501")
 	time.Sleep(5 * time.Second)
 	err = store1.Set([]byte("test"), []byte("value"))
 	if err != nil {
@@ -81,6 +84,7 @@ func TestCreateStoreMultipleServers(t *testing.T) {
 		t.Fail()
 		return
 	}
+	time.Sleep(100 * time.Millisecond)
 	val, err := store2.Get([]byte("test"))
 	if err != nil {
 		t.Error(err)
@@ -123,6 +127,120 @@ func TestCreateStoreMultipleServers(t *testing.T) {
 		t.Fail()
 		return
 	}
+}
+
+func TestCreateStoreSeveralServers(t *testing.T) {
+	serverCount := 16
+	startingPort := 7543
+	fmt.Printf("STARTING %d SERVER(s) FOR TESTING!\n", serverCount)
+	tmpDirs := make([]string, serverCount)
+	for i := 0; i < serverCount; i++ {
+		if tmpDir, err := ioutil.TempDir("", fmt.Sprintf("store_test_%d", i)); err != nil {
+			panic(err)
+		} else {
+			tmpDirs[i] = tmpDir
+		}
+	}
+	defer func() {
+		for _, tmpDir := range tmpDirs {
+			if err := os.RemoveAll(tmpDir); err != nil {
+				panic(err)
+			}
+		}
+	}()
+
+	stores := make(chan *arctonyx.Store, serverCount)
+	var wg sync.WaitGroup
+	wg.Add(serverCount)
+	for i := 0; i < serverCount; i++ {
+		listenPort := fmt.Sprintf(":%d", startingPort)
+		chatterPort := fmt.Sprintf(":%d", startingPort+1)
+		joinPort := ""
+		if i == 0 {
+			fmt.Printf("STARTING NODE [%d] RAFT/CHATTER PORTS [%s, %s]\n", i, listenPort, chatterPort)
+		} else {
+			joinPort = fmt.Sprintf(":%d", startingPort-(2*i)+1)
+			fmt.Printf("STARTING NODE [%d] RAFT/CHATTER PORTS [%s, %s] JOINING [%s]\n", i, listenPort, chatterPort, joinPort)
+		}
+
+		startingPort += 2 // Increment the starting port for the next iteration
+
+		tmpDir := tmpDirs[i]
+		go func(index int, tmpDir, listenPort, chatterPort, joinPort string) {
+			defer wg.Done()
+			store, err := arctonyx.CreateStore(tmpDir, listenPort, chatterPort, joinPort)
+			if err != nil {
+				panic(err)
+			}
+			time.Sleep(5 * time.Second)
+			stores <- store
+			fmt.Printf("FINISHED STARTING NODE [%d]\n", index)
+		}(i, tmpDir, listenPort, chatterPort, joinPort)
+		if i == 0 {
+			time.Sleep(10 * time.Second)
+		}
+	}
+	wg.Wait()
+	close(stores)
+
+	tupleSync := sync.Mutex{}
+	tupleIndex := 0
+	tuples := make([]arctonyx.Tuple, serverCount)
+	addTuple := func(tuple arctonyx.Tuple) {
+		tupleSync.Lock()
+		defer tupleSync.Unlock()
+		tuples[tupleIndex] = tuple
+		tupleIndex++
+	}
+
+	servers := make(chan *arctonyx.Store, serverCount)
+	wg = sync.WaitGroup{}
+	wg.Add(serverCount)
+	for server := range stores {
+		go func(store *arctonyx.Store) {
+			defer wg.Done()
+			id := store.NodeID()
+			if store.IsLeader() {
+				fmt.Printf("NODE [%d] IS LEADER\n", id)
+			} else {
+				fmt.Printf("NODE [%d] IS FOLLOWER\n", id)
+			}
+
+			tuple := arctonyx.Tuple{
+				Key:   []byte(fmt.Sprintf("key_%d", id)),
+				Value: []byte(fmt.Sprintf("value_%d", id)),
+			}
+			if err := store.Set(tuple.Key, tuple.Value); err != nil {
+				panic(err)
+			}
+			addTuple(tuple)
+			servers <- store
+			time.Sleep(1 * time.Second)
+		}(server)
+	}
+
+	fmt.Printf("WAITING FOR ALL SERVERS TO FINISH.\n")
+	wg.Wait()
+	fmt.Printf("ALL %d SERVERS HAVE FINISHED, NOW READING.\n", len(servers))
+	close(servers)
+	wg = sync.WaitGroup{}
+	wg.Add(serverCount)
+	for server := range servers {
+		go func(store *arctonyx.Store) {
+			defer wg.Done()
+			id := store.NodeID()
+			for _, tuple := range tuples {
+				if value, err := store.Get(tuple.Key); err != nil {
+					panic(err)
+				} else if !reflect.DeepEqual(value, tuple.Value) {
+					panic(fmt.Sprintf("Tuple for key [%s] does not match on node [%d]", string(tuple.Key), id))
+				}
+			}
+		}(server)
+	}
+	fmt.Printf("WAITING FOR ALL SERVERS TO FINISH READS.\n")
+	wg.Wait()
+	fmt.Printf("ALL SERVERS HAVE FINISHED\n")
 }
 
 func TestGetPrefix(t *testing.T) {
@@ -182,7 +300,7 @@ func TestSequence(t *testing.T) {
 			return
 		}
 		Ids = append(Ids, int(*id))
-		//golog.Infof("New user_id: %d", *id)
+		// golog.Infof("New user_id: %d", *id)
 	}
 	sort.Ints(Ids)
 	if len(Ids) != numberOfIds {
@@ -215,7 +333,7 @@ func TestSequenceMulti(t *testing.T) {
 		return
 	}
 	defer store2.Close()
-	//store1.Join(store2.NodeID(), ":6546", ":6501")
+	// store1.Join(store2.NodeID(), ":6546", ":6501")
 	time.Sleep(5 * time.Second)
 
 	numberOfIds := 1000000
@@ -230,7 +348,7 @@ func TestSequenceMulti(t *testing.T) {
 				return
 			}
 			Ids = append(Ids, int(*id))
-			//golog.Infof("New user_id on node 2: %d", *id)
+			// golog.Infof("New user_id on node 2: %d", *id)
 		default:
 			id, err := store1.NextSequenceValueById("public.users.user_id")
 			if err != nil {
@@ -239,7 +357,7 @@ func TestSequenceMulti(t *testing.T) {
 				return
 			}
 			Ids = append(Ids, int(*id))
-			//golog.Infof("New user_id on node 1: %d", *id)
+			// golog.Infof("New user_id on node 1: %d", *id)
 		}
 
 	}

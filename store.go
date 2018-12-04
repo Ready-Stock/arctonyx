@@ -244,8 +244,7 @@ func (store *Store) GetPrefix(prefix []byte) (values []KeyValue, err error) {
 }
 
 func (store *Store) Get(key []byte) (value []byte, err error) {
-	resetCount := 0
-latencyReset:
+	golog.Debugf("[%d] Getting key: %s", store.nodeId, string(key))
 	err = store.badger.View(func(txn *badger.Txn) error {
 		item, err := txn.Get(key)
 		if err != nil {
@@ -259,37 +258,33 @@ latencyReset:
 		value, err = item.ValueCopy(value)
 		return err
 	})
-	if resetCount < 10 {
-		if len(value) == 0 || err != nil {
-			resetCount++
-			golog.Debugf("couldnt find value for key: %s waiting 100ms", string(key))
-			time.Sleep(100 * time.Millisecond)
-			goto latencyReset
-		}
-	}
 	return value, err
 }
 
 func (store *Store) Set(key, value []byte) (err error) {
-	golog.Debugf("Setting key: %s to %s", string(key), string(value))
 	c := &Command{Operation: Operation_SET, Key: key, Value: value, Timestamp: uint64(time.Now().UnixNano())}
 	if store.raft.State() != raft.Leader {
 		if store.raft.Leader() == "" {
 			return errors.New("no leader in cluster")
 		}
+		golog.Debugf("[%d] Proxying set key: %s to %s", store.nodeId, string(key), string(value))
 		if _, err := store.clusterClient.sendCommand(c); err != nil {
 			return err
 		}
 		return nil
 	}
-	golog.Debugf("setting value locally")
+	golog.Debugf("[%d] Initiating set key: %s to %s", store.nodeId, string(key), string(value))
 	b, err := proto.Marshal(c)
 	if err != nil {
 		return err
 	}
 	r := store.raft.Apply(b, raftTimeout)
-	golog.Debugf("done setting value locally")
-	return r.Error()
+	if err := r.Error(); err != nil {
+		return err
+	} else if resp, ok := r.Response().(CommandResponse); ok {
+		golog.Debugf("[%d] Delay Total [%s] Response [%s]", store.nodeId, time.Since(time.Unix(0, int64(resp.Timestamp))), time.Since(time.Unix(0, int64(resp.AppliedTimestamp))))
+	}
+	return nil
 }
 
 func (store *Store) Delete(key []byte) (err error) {

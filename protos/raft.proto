@@ -35,6 +35,8 @@ message CommandResponse {
     bool is_success = 2;
     string error_message = 3;
     bytes value = 4;
+    uint64 timestamp = 5;
+    uint64 applied_timestamp = 6;
 }
 
 message JoinRequest {

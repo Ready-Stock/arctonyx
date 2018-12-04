@@ -20,15 +20,28 @@ func (f *fsm) Apply(l *raft.Log) interface{} {
 		golog.Fatalf("failed to unmarshal command: %s. %s", err.Error(), hex.Dump(l.Data))
 		return err
 	}
-	golog.Debugf("[%d] Delay [%s]\n%s", f.nodeId, time.Since(time.Unix(0, int64(c.Timestamp))), hex.Dump(l.Data))
-	switch c.Operation {
-	case Operation_SET:
-		return f.applySet(c.Key, c.Value)
-	case Operation_DELETE:
-		return f.applyDelete(c.Key)
-	default:
-		return errors.New("unsupported command operation: %d").Format(c.Operation)
+	r := CommandResponse{
+		Timestamp: c.Timestamp,
+		Operation: c.Operation,
 	}
+	golog.Warnf("[%d] FSM Receive Delay [%s]", f.nodeId, time.Since(time.Unix(0, int64(c.Timestamp))))
+	if err := func() error {
+		switch c.Operation {
+		case Operation_SET:
+			return f.applySet(c.Key, c.Value)
+		case Operation_DELETE:
+			return f.applyDelete(c.Key)
+		default:
+			return errors.New("unsupported command operation: %d").Format(c.Operation)
+		}
+	}(); err != nil {
+		r.ErrorMessage = err.Error()
+		r.IsSuccess = false
+	} else {
+		r.IsSuccess = true
+		r.AppliedTimestamp = uint64(time.Now().UnixNano())
+	}
+	return r
 }
 
 // Restore stores the key-value store to a previous state.
@@ -47,7 +60,7 @@ func (f *fsm) Snapshot() (raft.FSMSnapshot, error) {
 
 func (f *fsm) applySet(key, value []byte) error {
 	return f.badger.Update(func(txn *badger.Txn) error {
-		golog.Debugf("[%d] Setting Key: %s To Value: %s", f.nodeId, string(key), string(value))
+		golog.Debugf("[%d] FSM Setting Key: %s To Value: %s", f.nodeId, string(key), string(value))
 		return txn.Set(key, value)
 	})
 }
