@@ -20,6 +20,7 @@ install:
 - go get -d github.com/satori/go.uuid
 - go get -d github.com/readystock/arctonyx
 - export PATH=$HOME/protoc/bin:$GOPATH/bin:$PATH
+- make -C $GOPATH/src/github.com/readystock/raft protos
 - make protos
 - pwd
 
