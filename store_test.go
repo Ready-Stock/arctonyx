@@ -99,7 +99,7 @@ func TestCreateStoreMultipleServers(t *testing.T) {
 	}
 
 	store1.Set([]byte("test"), []byte("value1"))
-	time.Sleep(100 * time.Millisecond)
+    time.Sleep(5 * time.Second)
 	val1, err := store2.Get([]byte("test"))
 	if err != nil {
 		t.Error(err)
@@ -114,7 +114,7 @@ func TestCreateStoreMultipleServers(t *testing.T) {
 	}
 
 	store1.Delete([]byte("test"))
-	time.Sleep(100 * time.Millisecond)
+    time.Sleep(5 * time.Second)
 	val2, err := store2.Get([]byte("test"))
 	if err != nil {
 		t.Error(err)
