@@ -12,7 +12,7 @@ import (
 func TestSequenceServer_GetSequenceChunk(t *testing.T) {
 	tmpDir, _ := ioutil.TempDir("", "store_test")
 	defer os.RemoveAll(tmpDir)
-	store1, err := CreateStore(tmpDir, "127.0.0.1:0", "", "")
+	store1, err := CreateStore(tmpDir, "127.0.0.1:0", "")
 	if err != nil {
 		t.Error(err)
 		t.Fail()

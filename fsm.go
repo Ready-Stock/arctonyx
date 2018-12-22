@@ -5,7 +5,7 @@ import (
 	"encoding/hex"
 	"github.com/dgraph-io/badger"
 	"github.com/golang/protobuf/proto"
-	"github.com/hashicorp/raft"
+	"github.com/readystock/raft"
 	"github.com/kataras/go-errors"
 	"github.com/kataras/golog"
 	"io"

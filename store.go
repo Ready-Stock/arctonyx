@@ -5,9 +5,9 @@ import (
 	"fmt"
 	"github.com/dgraph-io/badger"
 	"github.com/golang/protobuf/proto"
-	"github.com/hashicorp/raft"
 	"github.com/kataras/go-errors"
 	"github.com/kataras/golog"
+	"github.com/readystock/raft"
 	"google.golang.org/grpc"
 	"net"
 	"os"
@@ -37,35 +37,46 @@ type Store struct {
 	server            *grpc.Server
 	nodeId            uint64
 	listen            string
-	chatterListen     string
 }
 
 // Creates and possibly joins a cluster.
-func CreateStore(directory string, listen string, chatterListen string, joinAddr string) (*Store, error) {
+func CreateStore(directory string, listen string, joinAddr string) (*Store, error) {
 	// Setup Raft configuration.
 	config := raft.DefaultConfig()
-	config.CommitTimeout = 10 * time.Millisecond
+	config.CommitTimeout = 1 * time.Second
 	store := Store{
 		chunkMapMutex:     new(sync.Mutex),
 		sequenceCacheSync: new(sync.Mutex),
 		sequenceCache:     map[string]*Sequence{},
 		sequenceChunks:    map[string]*SequenceChunk{},
 		listen:            listen,
-		chatterListen:     chatterListen,
 	}
 
 	if listen == "" {
 		listen = ":6543"
 	}
 
-	addr, err := net.ResolveTCPAddr("tcp", listen)
+	// addr, err := net.ResolveTCPAddr("tcp", listen)
+	// if err != nil {
+	// 	return nil, err
+	// }
+
+	lis, err := net.Listen("tcp", listen)
 	if err != nil {
 		return nil, err
 	}
-	transport, err := raft.NewTCPTransport(listen, addr, 3, 10*time.Second, os.Stderr)
+	grpcServer := grpc.NewServer()
+	//ctx := context.Background()
+	//transport:= raftgrpc.NewTransport(ctx, "")
+
+	transport, err := raft.NewGrpcTransport(grpcServer, lis.Addr().String())
+	// transport, err := raft.NewTCPTransport(listen, addr, 3, 10*time.Second, os.Stderr)
 	if err != nil {
 		return nil, err
 	}
+
+
+
 	opts := badger.DefaultOptions
 	opts.Dir = directory
 	opts.ValueDir = directory
@@ -103,8 +114,8 @@ func CreateStore(directory string, listen string, chatterListen string, joinAddr
 		}
 
 		defer func() {
-			golog.Debugf("node %d joining cluster!", nodeId)
-			tempClient.Join(context.Background(), &JoinRequest{RaftAddress: listen, ChatterAddress: chatterListen, Id: nodeId})
+			golog.Debugf("node %d joining cluster at addr %s!", nodeId, joinAddr)
+			tempClient.Join(context.Background(), &JoinRequest{RaftAddress: listen, Id: nodeId})
 		}()
 	} else {
 		if !clusterExists {
@@ -138,6 +149,9 @@ func CreateStore(directory string, listen string, chatterListen string, joinAddr
 		return nil, fmt.Errorf("new raft: %s", err)
 	}
 	store.raft = ra
+	RegisterClusterServiceServer(grpcServer, &clusterServer{store})
+	//raftgrpc.RegisterRaftServiceServer(grpcServer, )
+	go grpcServer.Serve(lis)
 	if joinAddr == "" && nodeId == 0 && !clusterExists {
 		configuration := raft.Configuration{
 			Servers: []raft.Server{
@@ -152,21 +166,16 @@ func CreateStore(directory string, listen string, chatterListen string, joinAddr
 			return nil, f.Error()
 		}
 		time.Sleep(5 * time.Second)
-		store.setPeer(nodeId, listen, chatterListen)
+		store.setPeer(nodeId, listen)
 	}
-	lis, err := net.Listen("tcp", chatterListen)
-	if err != nil {
-		return nil, err
-	}
-	grpcServer := grpc.NewServer()
-	RegisterClusterServiceServer(grpcServer, &clusterServer{store})
-	go grpcServer.Serve(lis)
+
+
 	store.server = grpcServer
 	store.clusterClient = &clusterClient{Store: store, sync: new(sync.Mutex)}
 	return &store, nil
 }
 
-func (store *Store) join(nodeId uint64, addr, chatter string) error {
+func (store *Store) join(nodeId uint64, addr string) error {
 	golog.Debugf("received join request from remote node [%d] at [%s]", nodeId, addr)
 
 	configFuture := store.raft.GetConfiguration()
@@ -195,16 +204,15 @@ func (store *Store) join(nodeId uint64, addr, chatter string) error {
 	if f.Error() != nil {
 		return f.Error()
 	}
-	store.setPeer(nodeId, addr, chatter)
+	store.setPeer(nodeId, addr)
 	golog.Infof("node %d at %s joined successfully", nodeId, addr)
 	return nil
 }
 
-func (store *Store) setPeer(nodeId uint64, addr, chatter string) error {
+func (store *Store) setPeer(nodeId uint64, addr string) error {
 	peer := &Peer{
 		NodeId:      nodeId,
 		RaftAddr:    addr,
-		ChatterAddr: chatter,
 	}
 	b, err := proto.Marshal(peer)
 	if err != nil {
@@ -220,7 +228,7 @@ func (store *Store) getPeer(server raft.ServerAddress) (addr string, err error) 
 		return addr, err
 	}
 	err = proto.Unmarshal(bytes, &peer)
-	addr = peer.ChatterAddr
+	addr = peer.RaftAddr
 	return addr, nil
 }
 

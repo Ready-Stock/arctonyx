@@ -41,8 +41,7 @@ message CommandResponse {
 
 message JoinRequest {
     string raft_address = 1;
-    string chatter_address = 2;
-    uint64 id = 3;
+    uint64 id = 2;
 }
 
 message JoinResponse {
@@ -53,7 +52,6 @@ message JoinResponse {
 message Peer {
     uint64 node_id = 1;
     string raft_addr = 2;
-    string chatter_addr = 3;
 }
 
 message sequenceChunkRequest {

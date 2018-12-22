@@ -3,7 +3,7 @@ package arctonyx
 import (
 	"encoding/json"
 	"github.com/dgraph-io/badger"
-	"github.com/hashicorp/raft"
+	"github.com/readystock/raft"
 )
 
 type logStore Store

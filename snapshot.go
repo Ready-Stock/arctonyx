@@ -1,7 +1,7 @@
 package arctonyx
 
 import (
-	"github.com/hashicorp/raft"
+	"github.com/readystock/raft"
 )
 
 type snapshot struct {

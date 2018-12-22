@@ -23,7 +23,7 @@ func TestMain(m *testing.M) {
 func TestCreateStore(t *testing.T) {
 	tmpDir, _ := ioutil.TempDir("", "store_test")
 	defer os.RemoveAll(tmpDir)
-	store1, err := arctonyx.CreateStore(tmpDir, "127.0.0.1:0", "", "")
+	store1, err := arctonyx.CreateStore(tmpDir, "127.0.0.1:0", "")
 	if err != nil {
 		t.Error(err)
 		t.Fail()
@@ -59,7 +59,7 @@ func TestCreateStoreMultipleServers(t *testing.T) {
 
 	tmpDir2, _ := ioutil.TempDir("", "store_test2")
 	defer os.RemoveAll(tmpDir2)
-	store1, err := arctonyx.CreateStore(tmpDir1, ":6543", ":6500", "")
+	store1, err := arctonyx.CreateStore(tmpDir1, ":6543", "")
 	if err != nil {
 		t.Error(err)
 		t.Fail()
@@ -69,7 +69,7 @@ func TestCreateStoreMultipleServers(t *testing.T) {
 	// Simple way to ensure there is a leader.
 	time.Sleep(5 * time.Second)
 
-	store2, err := arctonyx.CreateStore(tmpDir2, ":6544", ":6501", ":6500")
+	store2, err := arctonyx.CreateStore(tmpDir2, ":6544", ":6543")
 	if err != nil {
 		t.Error(err)
 		t.Fail()
@@ -84,7 +84,7 @@ func TestCreateStoreMultipleServers(t *testing.T) {
 		t.Fail()
 		return
 	}
-	time.Sleep(100 * time.Millisecond)
+    time.Sleep(5 * time.Second)
 	val, err := store2.Get([]byte("test"))
 	if err != nil {
 		t.Error(err)
@@ -154,28 +154,27 @@ func TestCreateStoreSeveralServers(t *testing.T) {
 	wg.Add(serverCount)
 	for i := 0; i < serverCount; i++ {
 		listenPort := fmt.Sprintf(":%d", startingPort)
-		chatterPort := fmt.Sprintf(":%d", startingPort+1)
 		joinPort := ""
 		if i == 0 {
-			fmt.Printf("STARTING NODE [%d] RAFT/CHATTER PORTS [%s, %s]\n", i, listenPort, chatterPort)
+			fmt.Printf("STARTING NODE [%d] RAFT PORT [%s]\n", i, listenPort)
 		} else {
-			joinPort = fmt.Sprintf(":%d", startingPort-(2*i)+1)
-			fmt.Printf("STARTING NODE [%d] RAFT/CHATTER PORTS [%s, %s] JOINING [%s]\n", i, listenPort, chatterPort, joinPort)
+			joinPort = fmt.Sprintf(":%d", startingPort-(2*i))
+			fmt.Printf("STARTING NODE [%d] RAFT PORT [%s] JOINING [%s]\n", i, listenPort, joinPort)
 		}
 
 		startingPort += 2 // Increment the starting port for the next iteration
 
 		tmpDir := tmpDirs[i]
-		go func(index int, tmpDir, listenPort, chatterPort, joinPort string) {
+		go func(index int, tmpDir, listenPort, joinPort string) {
 			defer wg.Done()
-			store, err := arctonyx.CreateStore(tmpDir, listenPort, chatterPort, joinPort)
+			store, err := arctonyx.CreateStore(tmpDir, listenPort, joinPort)
 			if err != nil {
 				panic(err)
 			}
 			time.Sleep(5 * time.Second)
 			stores <- store
 			fmt.Printf("FINISHED STARTING NODE [%d]\n", index)
-		}(i, tmpDir, listenPort, chatterPort, joinPort)
+		}(i, tmpDir, listenPort, joinPort)
 		if i == 0 {
 			time.Sleep(10 * time.Second)
 		}
@@ -210,12 +209,15 @@ func TestCreateStoreSeveralServers(t *testing.T) {
 				Key:   []byte(fmt.Sprintf("key_%d", id)),
 				Value: []byte(fmt.Sprintf("value_%d", id)),
 			}
+			fmt.Printf("[%d] STARTING TO SET [%s]\n", store.NodeID(), string(tuple.Key))
+
 			if err := store.Set(tuple.Key, tuple.Value); err != nil {
 				panic(err)
 			}
+			fmt.Printf("[%d] FINISHED SETTING [%s]\n", store.NodeID(), string(tuple.Key))
 			addTuple(tuple)
 			servers <- store
-			time.Sleep(1 * time.Second)
+			time.Sleep(5 * time.Second)
 		}(server)
 	}
 
@@ -233,7 +235,7 @@ func TestCreateStoreSeveralServers(t *testing.T) {
 				if value, err := store.Get(tuple.Key); err != nil {
 					panic(err)
 				} else if !reflect.DeepEqual(value, tuple.Value) {
-					panic(fmt.Sprintf("Tuple for key [%s] does not match on node [%d]", string(tuple.Key), id))
+					panic(fmt.Sprintf("Tuple for key [%s] does not match on node [%d] expected [%s] found [%s]", string(tuple.Key), id, string(value), string(tuple.Value)))
 				}
 			}
 		}(server)
@@ -246,7 +248,7 @@ func TestCreateStoreSeveralServers(t *testing.T) {
 func TestGetPrefix(t *testing.T) {
 	tmpDir, _ := ioutil.TempDir("", "store_test")
 	defer os.RemoveAll(tmpDir)
-	store1, err := arctonyx.CreateStore(tmpDir, "127.0.0.1:0", "", "")
+	store1, err := arctonyx.CreateStore(tmpDir, ":6802", "")
 	if err != nil {
 		t.Error(err)
 		t.Fail()
@@ -281,7 +283,7 @@ func TestGetPrefix(t *testing.T) {
 func TestSequence(t *testing.T) {
 	tmpDir, _ := ioutil.TempDir("", "store_test")
 	defer os.RemoveAll(tmpDir)
-	store1, err := arctonyx.CreateStore(tmpDir, "127.0.0.1:0", "", "")
+	store1, err := arctonyx.CreateStore(tmpDir, ":6702", "")
 	if err != nil {
 		t.Error(err)
 		t.Fail()
@@ -316,7 +318,7 @@ func TestSequenceMulti(t *testing.T) {
 	defer os.RemoveAll(tmpDir)
 	tmpDir2, _ := ioutil.TempDir("", "store_test2")
 	defer os.RemoveAll(tmpDir2)
-	store1, err := arctonyx.CreateStore(tmpDir, "127.0.0.1:0", ":6502", "")
+	store1, err := arctonyx.CreateStore(tmpDir, ":6502", "")
 	if err != nil {
 		t.Error(err)
 		t.Fail()
@@ -326,7 +328,7 @@ func TestSequenceMulti(t *testing.T) {
 	// Simple way to ensure there is a leader.
 	time.Sleep(5 * time.Second)
 
-	store2, err := arctonyx.CreateStore(tmpDir2, ":6546", ":6501", ":6502")
+	store2, err := arctonyx.CreateStore(tmpDir2, ":6503", ":6502")
 	if err != nil {
 		t.Error(err)
 		t.Fail()
@@ -378,7 +380,7 @@ func TestSequenceMulti(t *testing.T) {
 func TestCreateStoreWithClose(t *testing.T) {
 	tmpDir, _ := ioutil.TempDir("", "store_test")
 	defer os.RemoveAll(tmpDir)
-	store1, err := arctonyx.CreateStore(tmpDir, "127.0.0.1:0", "", "")
+	store1, err := arctonyx.CreateStore(tmpDir, ":6602", "")
 	if err != nil {
 		t.Error(err)
 		t.Fail()
@@ -410,7 +412,7 @@ func TestCreateStoreWithClose(t *testing.T) {
 	store1.Close()
 	store1 = nil
 	time.Sleep(5 * time.Second)
-	store1, err = arctonyx.CreateStore(tmpDir, "127.0.0.1:0", "", "")
+	store1, err = arctonyx.CreateStore(tmpDir, ":6602", "")
 	defer store1.Close()
 	// Simple way to ensure there is a leader.
 	time.Sleep(5 * time.Second)

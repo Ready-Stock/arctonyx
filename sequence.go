@@ -3,7 +3,7 @@ package arctonyx
 import (
 	"fmt"
 	"github.com/golang/protobuf/proto"
-	"github.com/hashicorp/raft"
+	"github.com/readystock/raft"
 	"github.com/kataras/golog"
 	"sync"
 )

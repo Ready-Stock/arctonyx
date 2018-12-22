@@ -28,7 +28,7 @@ func (server *clusterServer) SendCommand(ctx context.Context, command *Command) 
 
 func (server *clusterServer) Join(ctx context.Context, join *JoinRequest) (*JoinResponse, error) {
 	response := &JoinResponse{}
-	if err := server.Store.join(join.Id, join.RaftAddress, join.ChatterAddress); err != nil {
+	if err := server.Store.join(join.Id, join.RaftAddress); err != nil {
 		response.IsSuccess = false
 		response.ErrorMessage = err.Error()
 	} else {
