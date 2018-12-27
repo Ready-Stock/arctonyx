@@ -19,7 +19,7 @@ func main() {
 	}
 	tmpDir, _ := ioutil.TempDir("", randomName.String())
 	defer os.RemoveAll(tmpDir)
-	store, err := arctonyx.CreateStore(tmpDir, ":6500", ":6501", "")
+	store, err := arctonyx.CreateStore(tmpDir, ":6500", ":6501")
 	if err != nil {
 		panic(err)
 	}

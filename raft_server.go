@@ -20,7 +20,7 @@ func (server *clusterServer) SendCommand(ctx context.Context, command *Command) 
 	case Operation_SET:
 		return server.serverSet(*command)
 	case Operation_GET:
-		return nil, nil
+		return server.serverGet(*command)
 	default:
 		return nil, errors.New("could not handle operation %d").Format(command.Operation)
 	}
@@ -46,6 +46,21 @@ func (server *clusterServer) GetNodeID(ctx context.Context, join *GetNodeIdReque
 		NodeId:*nodeId,
 	}
 	return response, nil
+}
+
+func (server *clusterServer) serverGet(command Command) (*CommandResponse, error) {
+	response := &CommandResponse{
+		Operation:command.Operation,
+	}
+	value, err := server.Store.Get(command.Key)
+	if err != nil {
+		response.ErrorMessage = err.Error()
+		response.IsSuccess = false
+	} else {
+		response.Value = value
+		response.IsSuccess = true
+	}
+	return response, err
 }
 
 func (server *clusterServer) serverSet(command Command) (*CommandResponse, error) {
