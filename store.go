@@ -64,6 +64,7 @@ func CreateStore(directory string, listen string, joinAddr string) (*Store, erro
 	if err != nil {
 		return nil, err
 	}
+	store.listen = lis.Addr().String()
 	grpcServer := grpc.NewServer()
 	//ctx := context.Background()
 	//transport:= raftgrpc.NewTransport(ctx, "")
@@ -73,8 +74,6 @@ func CreateStore(directory string, listen string, joinAddr string) (*Store, erro
 	if err != nil {
 		return nil, err
 	}
-
-
 
 	opts := badger.DefaultOptions
 	opts.Dir = directory
@@ -109,16 +108,22 @@ func CreateStore(directory string, listen string, joinAddr string) (*Store, erro
 				return nil, err
 			}
 			nodeId = response.NodeId
-			stable.Set(serverIdPath, uint64ToBytes(nodeId))
+			if err := stable.Set(serverIdPath, uint64ToBytes(nodeId)); err != nil {
+				return nil, err
+			}
 		}
 
 		defer func() {
 			golog.Debugf("node %d joining cluster at addr %s!", nodeId, joinAddr)
-			tempClient.Join(context.Background(), &JoinRequest{RaftAddress: listen, Id: nodeId})
+			if _, err := tempClient.Join(context.Background(), &JoinRequest{RaftAddress: listen, Id: nodeId}); err != nil {
+				golog.Errorf("could not join `%s` error: %s", listen, err)
+			}
 		}()
 	} else {
 		if !clusterExists {
-			stable.Set(serverIdPath, uint64ToBytes(nodeId))
+			if err := stable.Set(serverIdPath, uint64ToBytes(nodeId)); err != nil {
+				return nil, err
+			}
 		}
 	}
 
@@ -164,9 +169,10 @@ func CreateStore(directory string, listen string, joinAddr string) (*Store, erro
 			return nil, f.Error()
 		}
 		time.Sleep(5 * time.Second)
-		store.setPeer(nodeId, listen)
+		if err := store.setPeer(nodeId, lis.Addr().String()); err != nil {
+			return nil, err
+		}
 	}
-
 
 	store.server = grpcServer
 	store.clusterClient = &clusterClient{Store: store, sync: new(sync.Mutex)}
@@ -209,8 +215,8 @@ func (store *Store) join(nodeId uint64, addr string) error {
 
 func (store *Store) setPeer(nodeId uint64, addr string) error {
 	peer := &Peer{
-		NodeId:      nodeId,
-		RaftAddr:    addr,
+		NodeId:   nodeId,
+		RaftAddr: addr,
 	}
 	b, err := proto.Marshal(peer)
 	if err != nil {
@@ -232,6 +238,10 @@ func (store *Store) getPeer(server raft.ServerAddress) (addr string, err error) 
 
 func (store *Store) NodeID() uint64 {
 	return store.nodeId
+}
+
+func (store *Store) ListenAddr() string {
+	return store.listen
 }
 
 func (store *Store) IsLeader() bool {

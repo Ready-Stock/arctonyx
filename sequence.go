@@ -3,8 +3,8 @@ package arctonyx
 import (
 	"fmt"
 	"github.com/golang/protobuf/proto"
+	"github.com/readystock/golog"
 	"github.com/readystock/raft"
-	"github.com/kataras/golog"
 	"sync"
 )
 
@@ -86,11 +86,33 @@ func (store *Store) NextSequenceValueById(sequenceName string) (*uint64, error) 
 			index:        1,
 			sequenceName: sequenceName,
 			sync:         new(sync.Mutex),
-			Store:		  *store,
+			Store:        *store,
 		}
 		store.sequenceChunks[sequenceName] = chunk
 	}
 	return chunk.Next()
+}
+
+func (store *Store) SequenceIndexById(sequenceName string) (uint64, error) {
+	store.chunkMapMutex.Lock()
+	defer store.chunkMapMutex.Unlock()
+	chunk, ok := store.sequenceChunks[sequenceName]
+	if !ok {
+		chunk = &SequenceChunk{
+			current:      nil,
+			next:         nil,
+			index:        1,
+			sequenceName: sequenceName,
+			sync:         new(sync.Mutex),
+			Store:        *store,
+		}
+		store.sequenceChunks[sequenceName] = chunk
+	}
+	return chunk.GetSequenceIndex(), nil
+}
+
+func (sequence *SequenceChunk) GetSequenceIndex() uint64 {
+	return sequence.index
 }
 
 func (sequence *SequenceChunk) Next() (*uint64, error) {
@@ -108,7 +130,7 @@ func (sequence *SequenceChunk) Next() (*uint64, error) {
 NewId:
 	nextId := sequence.current.Start + sequence.current.Offset + (sequence.current.Count * sequence.index) - (sequence.current.Count - 1)
 	if nextId > sequence.current.End {
-		golog.Infof("moving next chunk into current sequence [%s]", sequence.sequenceName)
+		golog.Debugf("moving next chunk into current sequence [%s]", sequence.sequenceName)
 		if sequence.next != nil {
 			sequence.current = sequence.next
 		} else {
@@ -123,7 +145,7 @@ NewId:
 		goto NewId
 	}
 	if sequence.next == nil && float64(sequence.index*sequence.current.Count)/float64(sequence.current.End-sequence.current.Start) > (float64(SequencePreretrieve)/100) {
-		golog.Infof("requesting next chunk in sequence [%s] preemptive", sequence.sequenceName)
+		golog.Debugf("requesting next chunk in sequence [%s] preemptive", sequence.sequenceName)
 		chunk, err := sequence.Store.getSequenceChunk(sequence.sequenceName)
 		if err != nil {
 			return nil, err
