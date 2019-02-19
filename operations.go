@@ -30,9 +30,30 @@ func (store *Store) GetPrefix(prefix []byte) (values []KeyValue, err error) {
 	return values, err
 }
 
+func (store *Store) GetKeyOnlyPrefix(prefix []byte) (keys [][]byte, err error) {
+	keys = make([][]byte, 0)
+	err = store.badger.View(func(txn *badger.Txn) error {
+		it := txn.NewIterator(badger.IteratorOptions{
+			PrefetchValues: false,
+			Reverse:        false,
+			AllVersions:    false,
+			Prefix:         prefix,
+		})
+		defer it.Close()
+		for it.Seek(prefix); it.ValidForPrefix(prefix); it.Next() {
+			item := it.Item()
+			key := make([]byte, 0)
+			key = item.KeyCopy(key)
+			keys = append(keys, key)
+		}
+		return nil
+	})
+	return keys, err
+}
+
 func (store *Store) Get(key []byte) (value []byte, err error) {
-	golog.Debugf("[%d] Getting key: %s", store.nodeId, string(key))
-	//isSet := true
+	// 	golog.Debugf("[%d] Getting key: %s", store.nodeId, string(key))
+	// isSet := true
 	err = store.badger.View(func(txn *badger.Txn) error {
 		item, err := txn.Get(key)
 		if err != nil {
@@ -42,7 +63,7 @@ func (store *Store) Get(key []byte) (value []byte, err error) {
 				// If the key is not found normally we want to just return an empty byte array.
 				// but only if we are the leader, if we are not the leader then we want to send
 				// a request to the leader.
-				//isSet = false
+				// isSet = false
 				value = make([]byte, 0)
 				return nil
 			}
@@ -80,6 +101,19 @@ func (store *Store) Set(key, value []byte) (err error) {
 		golog.Debugf("[%d] Delay Total [%s] Response [%s]", store.nodeId, time.Since(time.Unix(0, int64(resp.Timestamp))), time.Since(time.Unix(0, int64(resp.AppliedTimestamp))))
 	}
 	return nil
+}
+
+func (store *Store) ChangeKey(currentKey []byte, newKey []byte) error {
+	val, err := store.Get(currentKey)
+	if err != nil {
+		return err
+	}
+
+	if err := store.Set(newKey, val); err != nil {
+		return err
+	}
+
+	return store.Delete(currentKey)
 }
 
 func (store *Store) Delete(key []byte) (err error) {
