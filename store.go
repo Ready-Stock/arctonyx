@@ -55,22 +55,13 @@ func CreateStore(directory string, listen string, joinAddr string) (*Store, erro
 		listen = ":6543"
 	}
 
-	// addr, err := net.ResolveTCPAddr("tcp", listen)
-	// if err != nil {
-	// 	return nil, err
-	// }
-
 	lis, err := net.Listen("tcp", listen)
 	if err != nil {
 		return nil, err
 	}
 	store.listen = lis.Addr().String()
 	grpcServer := grpc.NewServer()
-	//ctx := context.Background()
-	//transport:= raftgrpc.NewTransport(ctx, "")
-
 	transport, err := raft.NewGrpcTransport(grpcServer, lis.Addr().String())
-	// transport, err := raft.NewTCPTransport(listen, addr, 3, 10*time.Second, os.Stderr)
 	if err != nil {
 		return nil, err
 	}
