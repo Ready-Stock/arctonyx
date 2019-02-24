@@ -132,7 +132,7 @@ func TestCreateStoreMultipleServers(t *testing.T) {
 func TestCreateStoreSeveralServers(t *testing.T) {
 	serverCount := 12
 	startingPort := 7543
-	fmt.Printf("STARTING %d SERVER(s) FOR TESTING!\n", serverCount)
+	golog.Infof("starting %d server(s) for testing", serverCount)
 	tmpDirs := make([]string, serverCount)
 	for i := 0; i < serverCount; i++ {
 		if tmpDir, err := ioutil.TempDir("", fmt.Sprintf("store_test_%d", i)); err != nil {
@@ -156,10 +156,10 @@ func TestCreateStoreSeveralServers(t *testing.T) {
 		listenPort := fmt.Sprintf(":%d", startingPort)
 		joinPort := ""
 		if i == 0 {
-			fmt.Printf("STARTING NODE [%d] RAFT PORT [%s]\n", i, listenPort)
+			golog.Infof("starting node [%d] raft port [%s]", i, listenPort)
 		} else {
 			joinPort = fmt.Sprintf(":%d", startingPort-(2*i))
-			fmt.Printf("STARTING NODE [%d] RAFT PORT [%s] JOINING [%s]\n", i, listenPort, joinPort)
+			golog.Infof("starting node [%d] raft port [%s] joining [%s]", i, listenPort, joinPort)
 		}
 
 		startingPort += 2 // Increment the starting port for the next iteration
@@ -173,11 +173,9 @@ func TestCreateStoreSeveralServers(t *testing.T) {
 			}
 			time.Sleep(5 * time.Second)
 			stores <- store
-			fmt.Printf("FINISHED STARTING NODE [%d]\n", index)
+			golog.Infof("finished starting node [%d]", index)
 		}(i, tmpDir, listenPort, joinPort)
-		if i == 0 {
-			time.Sleep(10 * time.Second)
-		}
+		time.Sleep(10 * time.Second)
 	}
 	wg.Wait()
 	close(stores)
@@ -200,21 +198,22 @@ func TestCreateStoreSeveralServers(t *testing.T) {
 			defer wg.Done()
 			id := store.NodeID()
 			if store.IsLeader() {
-				fmt.Printf("NODE [%d] IS LEADER\n", id)
+				golog.Infof("node [%d] is leader", id)
 			} else {
-				fmt.Printf("NODE [%d] IS FOLLOWER\n", id)
+				golog.Infof("node [%d] is follower", id)
 			}
 
 			tuple := arctonyx.Tuple{
 				Key:   []byte(fmt.Sprintf("key_%d", id)),
 				Value: []byte(fmt.Sprintf("value_%d", id)),
 			}
-			fmt.Printf("[%d] STARTING TO SET [%s]\n", store.NodeID(), string(tuple.Key))
+			golog.Infof("[%d] starting to set [%s]", store.NodeID(), string(tuple.Key))
 
 			if err := store.Set(tuple.Key, tuple.Value); err != nil {
 				panic(err)
 			}
-			fmt.Printf("[%d] FINISHED SETTING [%s]\n", store.NodeID(), string(tuple.Key))
+
+			golog.Infof("[%d] finished setting [%s]", store.NodeID(), string(tuple.Key))
 			addTuple(tuple)
 			servers <- store
 			time.Sleep(5 * time.Second)
