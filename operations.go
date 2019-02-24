@@ -9,8 +9,8 @@ import (
 	"time"
 )
 
-func (store *Store) GetPrefixWithPredicate(prefix []byte, predicate func(kv KeyValue) (bool, error)) (kv KeyValue, err error) {
-	return kv, store.badger.View(func(txn *badger.Txn) error {
+func (store *Store) GetPrefixWithPredicate(prefix []byte, predicate func(kv KeyValue) (bool, error)) (kv KeyValue, found bool, err error) {
+	return kv, found, store.badger.View(func(txn *badger.Txn) error {
 		it := txn.NewIterator(badger.DefaultIteratorOptions)
 		defer it.Close()
 		for it.Seek(prefix); it.ValidForPrefix(prefix); it.Next() {
@@ -23,10 +23,11 @@ func (store *Store) GetPrefixWithPredicate(prefix []byte, predicate func(kv KeyV
 				return err
 			}
 			val := KeyValue{Key: keyBytes, Value: valueBytes}
-			if found, err := predicate(val); err != nil {
+			if f, err := predicate(val); err != nil {
 				return err
-			} else if found {
+			} else if f {
 				kv = val
+				found = true
 				return nil
 			}
 		}
