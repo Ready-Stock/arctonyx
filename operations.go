@@ -9,6 +9,30 @@ import (
 	"time"
 )
 
+func (store *Store) GetPrefixWithPredicate(prefix []byte, predicate func(kv KeyValue) (bool, error)) (err error) {
+	return store.badger.View(func(txn *badger.Txn) error {
+		it := txn.NewIterator(badger.DefaultIteratorOptions)
+		defer it.Close()
+		for it.Seek(prefix); it.ValidForPrefix(prefix); it.Next() {
+			item := it.Item()
+			keyBytes := make([]byte, 0)
+			keyBytes = item.KeyCopy(keyBytes)
+			valueBytes := make([]byte, 0)
+			valueBytes, err = item.ValueCopy(valueBytes)
+			if err != nil {
+				return err
+			}
+
+			if found, err := predicate(KeyValue{Key: keyBytes, Value: valueBytes}); err != nil {
+				return err
+			} else if found {
+				return nil
+			}
+		}
+		return nil
+	})
+}
+
 func (store *Store) GetPrefix(prefix []byte) (values []KeyValue, err error) {
 	values = make([]KeyValue, 0)
 	err = store.badger.View(func(txn *badger.Txn) error {
@@ -52,7 +76,6 @@ func (store *Store) GetKeyOnlyPrefix(prefix []byte) (keys [][]byte, err error) {
 }
 
 func (store *Store) Get(key []byte) (value []byte, err error) {
-	// 	golog.Debugf("[%d] Getting key: %s", store.nodeId, string(key))
 	// isSet := true
 	err = store.badger.View(func(txn *badger.Txn) error {
 		item, err := txn.Get(key)
@@ -83,13 +106,11 @@ func (store *Store) Set(key, value []byte) (err error) {
 		if store.raft.Leader() == "" {
 			return errors.New("no leader in cluster")
 		}
-		golog.Debugf("[%d] Proxying set key: %s to %s", store.nodeId, string(key), string(value))
 		if _, err := store.clusterClient.sendCommand(c); err != nil {
 			return err
 		}
 		return nil
 	}
-	golog.Debugf("[%d] Initiating set key: %s", store.nodeId, string(key))
 	b, err := proto.Marshal(c)
 	if err != nil {
 		return err
